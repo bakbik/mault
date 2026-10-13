@@ -867,7 +867,33 @@ void setModuleNeutral(int module, unsigned long staggerMs) {
   }
 }
 
+int feederRunningAt = 0;  // DYMES: the pulse a feed is running at; 0 = stopped or a raw preview
+
+// DYMES: the speed of a feed: slower while quiet.
+int feederSpeed() { return quietMode ? DYMES_QUIET_FEEDER_SPEED : feederConfig.speed; }
+
+// DYMES: a steady feed in quiet mode starts and ends with a ramp.
+bool feederRamps() {
+  return quietMode && DYMES_FEEDER_RAMP_MS > 0 && feederConfig.pulseDuration <= 0;
+}
+
+void rampFeeder(int from, int to) {  // DYMES
+  int steps = DYMES_FEEDER_RAMP_MS / DYMES_STEP_MS;
+  for (int i = 1; i < steps; i++) {
+    pwm.setPWM(getFeederChannel(), 0, servoPulse(from + (long)(to - from) * i / steps));
+    waitMs(DYMES_STEP_MS);
+  }
+}
+
+void startFeeder(int speed) {  // DYMES
+  if (feederRamps()) rampFeeder(DYMES_FEEDER_STILL, speed);
+  setServoPosition(getFeederChannel(), speed);
+  feederRunningAt = servoPulse(speed);
+}
+
 void stopFeeder() {
+  if (feederRamps() && feederRunningAt) rampFeeder(feederRunningAt, DYMES_FEEDER_STILL);  // DYMES
+  feederRunningAt = 0;  // DYMES
   pwm.setPin(getFeederChannel(), 0);  // cut PWM signal entirely to stop 360° servo
 }
 
@@ -875,7 +901,7 @@ void stopFeeder() {
 // once the hopper's empty, keep the motor running settleDuration ms longer.
 void rollBackFeeder() {
   if (feederConfig.reverseDuration <= 0 || !hopperHasCards()) return;
-  setServoPosition(getFeederChannel(), feederConfig.reverseSpeed);
+  startFeeder(feederConfig.reverseSpeed);  // DYMES
   waitMs(feederConfig.reverseDuration);
   stopFeeder();
 }
@@ -901,7 +927,7 @@ FeedResult runFeeder() {
   if (digitalRead(irPin(1)) == LOW) return FEED_DETECTED;
 
   if (!hopperHasCards()) {
-    setServoPosition(getFeederChannel(), feederConfig.speed);
+    startFeeder(feederSpeed());  // DYMES
     waitMs(feederConfig.pulseDuration > 0 ? feederConfig.pulseDuration : 200);
     stopFeeder();
     if (digitalRead(irPin(1)) == LOW) return FEED_DETECTED;
@@ -909,7 +935,7 @@ FeedResult runFeeder() {
   }
 
   if (feederConfig.pulseDuration <= 0) {
-    setServoPosition(getFeederChannel(), feederConfig.speed);
+    startFeeder(feederSpeed());  // DYMES
     while (millis() - start < (unsigned long)feederConfig.duration) {
       if (digitalRead(irPin(1)) == LOW) {
         settleAndStopFeeder();
@@ -924,7 +950,7 @@ FeedResult runFeeder() {
   while (millis() - start < (unsigned long)feederConfig.duration) {
     if (digitalRead(irPin(1)) == LOW) return FEED_DETECTED;
 
-    setServoPosition(getFeederChannel(), feederConfig.speed);
+    startFeeder(feederSpeed());  // DYMES
 
     unsigned long pulseStart = millis();
     while (millis() - pulseStart < (unsigned long)feederConfig.pulseDuration) {
@@ -939,7 +965,7 @@ FeedResult runFeeder() {
     if (digitalRead(irPin(1)) == LOW) {
       // Motor's already off - only the last card (hopper now empty) needs an extra push to fully seat it.
       if (!hopperHasCards()) {
-        setServoPosition(getFeederChannel(), feederConfig.speed);
+        startFeeder(feederSpeed());  // DYMES
         waitMs(feederConfig.settleDuration);
         stopFeeder();
       } else {
