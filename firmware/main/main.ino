@@ -37,8 +37,8 @@
 #define DYMES_BOTTOM_SPEED 400        // DYMES: counts per second a trapdoor walks at; 0 = jump
 #define DYMES_PADDLE_SPEED 400        // DYMES: the same for a paddle
 #define DYMES_STEP_MS 10              // DYMES: time between two steps of a walk or a ramp
-#define DYMES_QUIET_FEEDER_SPEED 320  // DYMES: the feeder's pulse while quiet
-#define DYMES_FEEDER_STILL 345        // DYMES: the pulse at which this feeder stands still
+#define DYMES_QUIET_FEEDER_SPEED 280  // DYMES: the feeder's pulse while quiet
+#define DYMES_FEEDER_STILL 290        // DYMES: the pulse at which this feeder stands still
 #define DYMES_FEEDER_RAMP_MS 150      // DYMES: the feeder's ramp up and down; 0 = none
 bool quietMode = false;               // DYMES
 
