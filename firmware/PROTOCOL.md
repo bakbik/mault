@@ -678,3 +678,19 @@ response time for the feed (the web client waits 25s instead of 15s).
 | `{"error":"busy","reason":"another command is in progress"}` | a line arrived while another command (from any transport) was still executing; the line was not run |
 | `{"error":"unknown command"}` | valid JSON, but no recognized top-level key |
 | `{"error":"jam","module":N}` | **unsolicited** — module *N*'s IR saw a card continuously for 20s with no servo activity (informational only - no paddle-flap is attempted since nothing is actively sorting) |
+
+## Fork: `bakbik/mault`, branch `dymes`
+
+This firmware is upstream's with a quiet mode. The boot banner and `getStatus` carry
+`"variant":"dymes"` and `"quiet":true|false`.
+
+### `setQuiet`
+```json
+{"setQuiet": true}
+```
+Switches the mode and keeps it across restarts (ESP32 `Preferences`, apart from the stored
+calibration). Moves nothing. → `{"status":"ok","quiet":true}`
+
+Fast mode (`false`, the default) is upstream's behaviour. In quiet mode a module's trapdoor
+and paddle walk to their position instead of jumping, and a steady feed runs at a slower
+speed with a ramp at its start and its end. The pusher is never slowed.

@@ -8,6 +8,7 @@
 #if defined(ARDUINO_ARCH_ESP32)
 #include "esp_mac.h"
 #include "esp_system.h"
+#include <Preferences.h>  // DYMES: where the quiet mode is kept
 #else
 #include <WDT.h>
 #endif
@@ -30,6 +31,34 @@
 // are unaffected - Serial there is always the UART bridge chip.
 
 #define FIRMWARE_VERSION "2.10.3"
+
+// DYMES: quiet mode. Fast mode is upstream's behaviour; everything below acts only while
+// quietMode is true. The numbers belong to this machine's servos.
+#define DYMES_BOTTOM_SPEED 400        // DYMES: counts per second a trapdoor walks at; 0 = jump
+#define DYMES_PADDLE_SPEED 400        // DYMES: the same for a paddle
+#define DYMES_STEP_MS 10              // DYMES: time between two steps of a walk or a ramp
+#define DYMES_QUIET_FEEDER_SPEED 320  // DYMES: the feeder's pulse while quiet
+#define DYMES_FEEDER_STILL 345        // DYMES: the pulse at which this feeder stands still
+#define DYMES_FEEDER_RAMP_MS 150      // DYMES: the feeder's ramp up and down; 0 = none
+bool quietMode = false;               // DYMES
+
+void loadQuietMode() {  // DYMES
+#if defined(ARDUINO_ARCH_ESP32)
+  Preferences store;
+  store.begin("dymes", true);
+  quietMode = store.getBool("quiet", false);
+  store.end();
+#endif
+}
+
+void storeQuietMode() {  // DYMES
+#if defined(ARDUINO_ARCH_ESP32)
+  Preferences store;
+  store.begin("dymes", false);
+  store.putBool("quiet", quietMode);
+  store.end();
+#endif
+}
 
 // Reported in getStatus/boot so the app knows how (or whether) it can
 // update the device - only the ESP32 build can be reflashed from the
@@ -783,8 +812,11 @@ void lowerPaddleForPush(int module) {
     setServoPosition(getChannel(module, 1), moduleConfig[module - 1].paddleOpen);
   }
   unsigned long openDelay = (unsigned long)max(moduleConfig[module - 1].paddleOpenDelay, 0);
-  unsigned long elapsed = millis() - paddleOpenedAt[module - 1];
-  if (elapsed < openDelay) waitMs(openDelay - elapsed);
+  // DYMES: the mark is millis() | 1, which can lie 1 ms ahead of the clock; subtracted
+  // unsigned that reads as 49 days and the wait was skipped.
+  long elapsed = (long)(millis() - paddleOpenedAt[module - 1]);  // DYMES
+  if (elapsed < 0) elapsed = 0;  // DYMES
+  if ((unsigned long)elapsed < openDelay) waitMs(openDelay - (unsigned long)elapsed);  // DYMES
 }
 
 // SG90s keep hunting around a held position and pick up supply noise as
@@ -1363,6 +1395,8 @@ void printStatus(Print& reply, bool live) {
   reply.print(F("\",\"servoDriver\":\""));
   reply.print(servoDriverStatus());
   reply.write('"');
+  reply.print(F(",\"variant\":\"dymes\",\"quiet\":"));  // DYMES
+  reply.print(quietMode ? F("true") : F("false"));     // DYMES
   if (live) {
     reply.print(F(",\"uptimeMs\":"));
     reply.print(millis());
@@ -1676,6 +1710,16 @@ void runCommand(JsonDocument& doc, Print& reply) {
     return;
   }
 
+  // DYMES: {"setQuiet": true|false} - the mode, kept across restarts. Moves nothing.
+  if (doc["setQuiet"].is<bool>()) {
+    quietMode = doc["setQuiet"].as<bool>();
+    storeQuietMode();
+    reply.print(F("{\"status\":\"ok\",\"quiet\":"));
+    reply.print(quietMode ? F("true") : F("false"));
+    reply.println(F("}"));
+    return;
+  }
+
   reply.println(F("{\"error\":\"unknown command\"}"));
 }
 
@@ -1701,6 +1745,7 @@ void setup() {
   }
   beginEeprom();
   loadStoredConfig();
+  loadQuietMode();  // DYMES
 
   // All MAX_MODULES pins are set up regardless of the eventual offset/module
   // count - harmless, and the app hasn't told us the offset yet.
