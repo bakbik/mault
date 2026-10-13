@@ -787,6 +787,28 @@ int moduleForChannel(int channel) {
   return module <= maxModuleForOffset() ? module : 0;
 }
 
+int servoSlotForChannel(int channel) {  // DYMES: upstream inlined this; walkServoTo needs it
+  return moduleForChannel(channel) ? (channel - moduleChannelOffset) % 3 : -1;
+}
+
+int lastPulse[16];        // DYMES: the last pulse sent to each channel; 0 = not known
+bool smoothMoves = true;  // DYMES: false while a stuck card is shaken loose
+
+// DYMES: in quiet mode a trapdoor or a paddle walks to its target in small steps. The
+// caller writes the target itself afterwards, so this stops one step short.
+void walkServoTo(int channel, int target) {
+  int slot = servoSlotForChannel(channel);
+  int speed = slot == 0 ? DYMES_BOTTOM_SPEED : slot == 1 ? DYMES_PADDLE_SPEED : 0;
+  int at = lastPulse[channel];
+  if (!quietMode || !smoothMoves || speed <= 0 || at == 0 || at == target) return;
+  int step = max(1, speed * DYMES_STEP_MS / 1000);
+  while (abs(target - at) > step) {
+    at += target > at ? step : -step;
+    pwm.setPWM(channel, 0, at);
+    waitMs(DYMES_STEP_MS);
+  }
+}
+
 void setServoPosition(int channel, int pulse) {
   int value = servoPulse(pulse);
   int module = moduleForChannel(channel);
@@ -794,10 +816,12 @@ void setServoPosition(int channel, int pulse) {
   if (slot == 2 && value != servoPulse(moduleConfig[module - 1].pusherNeutral)) {
     lowerPaddleForPush(module);
   }
+  walkServoTo(channel, value);  // DYMES
   if (pwm.setPWM(channel, 0, value) != 0) {
     recoverServoDriver();
     pwm.setPWM(channel, 0, value);
   }
+  lastPulse[channel] = value;  // DYMES
   lastServoMoveAt = millis();
   servosReleased = false;
 
@@ -940,6 +964,7 @@ void wiggleModulePaddle(int module) {
   // Only swing the bottom flap halfway shut, so it jostles the card without
   // clamping down on it.
   int bottomHalfClosed = (c.bottomOpen + c.bottomClosed) / 2;
+  smoothMoves = false;  // DYMES: the flapping is meant to be abrupt
 
   for (int i = 0; i < 3; i++) {
     // Jiggle both the side paddle and front/bottom flap together.
@@ -952,13 +977,17 @@ void wiggleModulePaddle(int module) {
     waitMs(150);
 
     // Stop as soon as the card clears this module.
-    if (digitalRead(irPin(module)) == HIGH) return;
+    if (digitalRead(irPin(module)) == HIGH) {  // DYMES
+      smoothMoves = true;                      // DYMES
+      return;
+    }                                          // DYMES
   }
 
   // routeCard() calls this recovery after the bottom has already been opened,
   // so leave the front/bottom flap open for the retry.
   setServoPosition(bottomChannel, c.bottomOpen);
   setServoPosition(paddleChannel, c.paddleClosed);
+  smoothMoves = true;  // DYMES
 }
 
 // Runs between commands only (routeCard()/runFeeder() block loop() for
