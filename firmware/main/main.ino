@@ -654,8 +654,12 @@ void lowerPaddleForPush(int module) {
     setServoPosition(getChannel(module, 1), moduleConfig[module - 1].paddleOpen);
   }
   unsigned long openDelay = (unsigned long)max(moduleConfig[module - 1].paddleOpenDelay, 0);
-  unsigned long elapsed = millis() - paddleOpenedAt[module - 1];
-  if (elapsed < openDelay) waitMs(openDelay - elapsed);
+  // paddleOpenedAt is millis() | 1, which can be 1 ms ahead of millis(). Subtracted as
+  // unsigned that wraps to ~49 days, and the wait below was skipped: the pusher could fire
+  // while the paddle was still on its way down.
+  long elapsed = (long)(millis() - paddleOpenedAt[module - 1]);
+  if (elapsed < 0) elapsed = 0;
+  if ((unsigned long)elapsed < openDelay) waitMs(openDelay - (unsigned long)elapsed);
 }
 
 // SG90s keep hunting around a held position and pick up supply noise as
