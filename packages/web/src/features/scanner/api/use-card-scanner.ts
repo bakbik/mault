@@ -8,6 +8,7 @@ import { useCameraContext } from "@/features/scanner/api/use-camera";
 import { drawDetectionOverlay } from "@/features/scanner/lib/card-detection";
 import { searchCardImageWithConsensus } from "@/features/scanner/lib/card-image-search";
 import { detectCardCorners } from "@/features/scanner/lib/cornelius";
+import { withExternalIdentifier } from "@/features/scanner/lib/external-identifier";
 import { getOnnxRuntimeFailure } from "@/features/scanner/lib/onnx-runtime";
 import { createOutlineAnimator } from "@/features/scanner/lib/outline-animator";
 import {
@@ -318,6 +319,8 @@ export function useCardScanner({
           matchesNeededRef.current,
           checkBothOrientationsRef.current,
           colorBarRegionRef.current,
+        ).then((outcome) =>
+          withExternalIdentifier(outcome, canvas, activeCollectionGuidRef.current),
         );
         setDebugImageUrl(debugImageUrl);
         debugImageUrlRef.current = debugImageUrl;

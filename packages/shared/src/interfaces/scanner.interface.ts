@@ -105,7 +105,8 @@ export interface ScannedCard {
 export type UnmatchedReason =
   | SearchNoMatchReason
   | "no_consensus"
-  | "lookup_failed";
+  | "lookup_failed"
+  | "external_failed";
 
 export interface ScanDetectionDiagnostics {
   cardDetected: boolean;
@@ -130,6 +131,7 @@ export interface UnmatchedScanDiagnostics {
   attempts: ScanAttemptDiagnostic[];
   lookupFailedCardIds?: string[];
   ocr?: OcrDiagnostics | null;
+  externalReason?: string;
 }
 
 export type ScanMatchSource = "embedding" | "ocr";

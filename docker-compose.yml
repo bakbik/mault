@@ -93,6 +93,8 @@ services:
       VITE_ROLLBAR_ACCESS_TOKEN: ${VITE_ROLLBAR_ACCESS_TOKEN:-}
       VITE_SHOW_SCAN_LOGS: ${VITE_SHOW_SCAN_LOGS:-}
       VITE_API_DOCS_URL: ${VITE_API_DOCS_URL:-}
+      # Optional external card identifier (e.g. http://127.0.0.1:8770); empty = off.
+      VITE_EXTERNAL_IDENTIFIER_URL: ${VITE_EXTERNAL_IDENTIFIER_URL:-}
     depends_on:
       - server
     ports:
