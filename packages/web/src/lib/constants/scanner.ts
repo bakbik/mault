@@ -70,8 +70,10 @@ export const PI_SCAN_CARD_EVENTS = [
 
 export const STALE_DEVICE_THRESHOLD_DAYS = 30;
 
-export const CAMERA_IDEAL_WIDTH = 1920;
-export const CAMERA_IDEAL_HEIGHT = 1080;
+// 4K when an external identifier is configured: it reads the card's small print.
+const EXTERNAL_IDENTIFIER = !!runtimeEnv("VITE_EXTERNAL_IDENTIFIER_URL");
+export const CAMERA_IDEAL_WIDTH = EXTERNAL_IDENTIFIER ? 3840 : 1920;
+export const CAMERA_IDEAL_HEIGHT = EXTERNAL_IDENTIFIER ? 2160 : 1080;
 export const CAMERA_BUSY_RETRY_DELAYS_MS = [150, 400, 800];
 export const CAMERA_FALLBACK_RESOLUTIONS = [
   { width: 1280, height: 720 },

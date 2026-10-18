@@ -13,6 +13,7 @@ import {
   searchCardImageWithConsensus,
 } from "@/features/scanner/lib/card-image-search";
 import { detectCardCorners } from "@/features/scanner/lib/cornelius";
+import { withExternalIdentifier } from "@/features/scanner/lib/external-identifier";
 import { getOnnxRuntimeFailure } from "@/features/scanner/lib/onnx-runtime";
 import { createOutlineAnimator } from "@/features/scanner/lib/outline-animator";
 import { startVideoPreviewLoop } from "@/features/scanner/lib/video-preview-loop";
@@ -361,6 +362,8 @@ export function useCardScanner({
           matchesNeededRef.current,
           isDocumentScan || checkBothOrientationsRef.current,
           gameKeyRef.current,
+        ).then((outcome) =>
+          withExternalIdentifier(outcome, canvas, activeCollectionGuidRef.current),
         );
         setDebugImageUrl(debugImageUrl);
         const { capturedImageUrl, capturedBackImageUrl } = await orientDocumentScanImages(

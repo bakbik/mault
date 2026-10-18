@@ -22,6 +22,7 @@ export function UnmatchedDiagnosticsDetails({
         <p className="text-foreground/70">
           {t(`unmatchedCardsPanel.reasonHints.${diagnostics.reason}`)}
         </p>
+        {diagnostics.externalReason && <p>{diagnostics.externalReason}</p>}
       </div>
 
       {search && search.candidates.length > 0 && (
