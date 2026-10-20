@@ -15,7 +15,8 @@ import type {
  *
  * The service answers POST /identify (the full frame as JPEG; headers X-Corners with the detected
  * card corners in frame pixels, X-Mault-Card with the scanner's own answer) with
- * { card_id, lang } or { failed: reason }, and GET /health.
+ * { card_id, lang, price_usd? } or { failed: reason }, and GET /health. price_usd, when given,
+ * replaces the card's own USD price, so price rules sort by the service's price.
  */
 const SERVICE_URL = (runtimeEnv("VITE_EXTERNAL_IDENTIFIER_URL") ?? "").replace(
   /\/+$/,
@@ -30,7 +31,7 @@ const JPEG_QUALITY = 0.95;
 let serviceDown = false;
 
 export type ExternalAnswer =
-  | { kind: "card"; cardId: string; lang: string }
+  | { kind: "card"; cardId: string; lang: string; priceUsd: number | null }
   | { kind: "failed"; reason: string }
   | { kind: "unavailable"; reason: string };
 
@@ -112,12 +113,18 @@ export async function identifyExternally(
       card_id?: unknown;
       lang?: unknown;
       failed?: unknown;
+      price_usd?: unknown;
     };
     if (typeof answer.card_id === "string" && answer.card_id) {
+      const price = answer.price_usd;
       return {
         kind: "card",
         cardId: answer.card_id,
         lang: typeof answer.lang === "string" ? answer.lang : "en",
+        priceUsd:
+          typeof price === "number" && Number.isFinite(price) && price > 0
+            ? price
+            : null,
       };
     }
     return { kind: "failed", reason: String(answer.failed ?? "no card") };
@@ -182,15 +189,18 @@ export async function withExternalIdentifier(
   scanLog(
     `[scanner] external identifier: ${answer.cardId} (scanner: ${scannerCardId ?? "no match"})`,
   );
+  // The service's USD price, when it has one, is the card's price for display and price rules.
+  const priced = <T extends { price: number | null }>(card: T): T =>
+    answer.priceUsd == null ? card : { ...card, price: answer.priceUsd };
   if (answer.cardId === scannerCardId && outcome.card) {
-    return { ...outcome, alternativeMatches: [] };
+    return { ...outcome, card: priced(outcome.card), alternativeMatches: [] };
   }
   try {
     const found = await getCardById(answer.cardId, collectionGuid, answer.lang);
     if (found.data) {
       return {
         ...outcome,
-        card: { ...found.data, distance: 0 },
+        card: priced({ ...found.data, distance: 0 }),
         alternativeMatches: [],
         matched: outcome.matched && {
           ...outcome.matched,
