@@ -88,6 +88,7 @@ import { useScanTimer } from "@/features/scanner/api/use-scan-timer";
 import { useSerial } from "@/features/scanner/api/use-serial";
 import { useStations } from "@/features/scanner/api/use-stations";
 import { BinCorrectionDialog } from "@/features/scanner/components/bin-correction-dialog";
+import { withExternalPrice } from "@/features/scanner/lib/external-identifier";
 import { routeCardToBin } from "@/features/scanner/lib/route-card-to-bin";
 import { showSorterLimitToast } from "@/features/scanner/lib/sorter-limit-toast";
 import { useSoundRulePlayer } from "@/features/sounds/api/use-sound-rule-player";
@@ -1242,7 +1243,7 @@ export function ScannedCardsProvider({
     [removeCards],
   );
 
-  const correctCard = useCallback(
+  const correctCardPriced = useCallback(
     (scanId: string, card: PlayingCard) => {
       const collection = activeCollectionRef.current;
       const corrected: PlayingCardWithDistance = {
@@ -1303,6 +1304,13 @@ export function ScannedCardsProvider({
         );
     },
     [resolveCorrectedBin, pickListNameInBin, queryClient],
+  );
+  const correctCard = useCallback(
+    (scanId: string, card: PlayingCard) =>
+      void withExternalPrice(card).then((priced) =>
+        correctCardPriced(scanId, priced),
+      ),
+    [correctCardPriced],
   );
 
   const moveCorrectedCard = useCallback(
