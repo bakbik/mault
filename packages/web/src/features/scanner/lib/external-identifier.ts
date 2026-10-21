@@ -137,6 +137,32 @@ export async function identifyExternally(
   }
 }
 
+/**
+ * The card with the service's USD price as its price (GET /price/<card id>), for a card chosen
+ * by hand, e.g. a correction. Without an identifier, or without an answer within
+ * HEALTH_TIMEOUT_MS, the card as it is.
+ */
+export async function withExternalPrice<T extends { id: string; price: number | null }>(
+  card: T,
+): Promise<T> {
+  if (!externalIdentifierEnabled() || serviceDown) return card;
+  try {
+    const response = await fetchWithin(
+      `${SERVICE_URL}/price/${encodeURIComponent(card.id)}`,
+      {},
+      HEALTH_TIMEOUT_MS,
+    );
+    const price = response.ok
+      ? ((await response.json()) as { price_usd?: unknown }).price_usd
+      : null;
+    return typeof price === "number" && Number.isFinite(price) && price > 0
+      ? { ...card, price }
+      : card;
+  } catch {
+    return card;
+  }
+}
+
 function unmatched(outcome: ScanOutcome, reason: string): ScanOutcome {
   const matched = outcome.matched?.diagnostics;
   const base: UnmatchedScanDiagnostics = outcome.noMatch?.diagnostics ?? {
