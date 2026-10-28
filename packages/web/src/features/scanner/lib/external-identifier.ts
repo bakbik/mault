@@ -282,7 +282,7 @@ export async function withExternalIdentifier(
         alternativeMatches: [],
         matched: outcome.matched && {
           ...outcome.matched,
-          needsReview: false,
+          lowConfidenceMatch: false,
         },
       };
     }
