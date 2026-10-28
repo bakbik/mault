@@ -194,6 +194,8 @@ export function useCardScanner({
 
   const activeCollectionGuidRef = useRef(activeCollection?.guid);
   activeCollectionGuidRef.current = activeCollection?.guid;
+  const activeCollectionLangRef = useRef(activeCollection?.lang);
+  activeCollectionLangRef.current = activeCollection?.lang;
   const preferredSetCodesRef = useRef(preferredSetCodes);
   preferredSetCodesRef.current = preferredSetCodes;
 
@@ -363,7 +365,12 @@ export function useCardScanner({
           isDocumentScan || checkBothOrientationsRef.current,
           gameKeyRef.current,
         ).then((outcome) =>
-          withExternalIdentifier(outcome, canvas, activeCollectionGuidRef.current),
+          withExternalIdentifier(
+            outcome,
+            canvas,
+            activeCollectionGuidRef.current,
+            activeCollectionLangRef.current,
+          ),
         );
         setDebugImageUrl(debugImageUrl);
         const { capturedImageUrl, capturedBackImageUrl } = await orientDocumentScanImages(

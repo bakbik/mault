@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { cardImageVectors } from "../../db/schema";
 import { SYNC_SOURCES } from "../../lib/sync-job";
@@ -175,4 +175,76 @@ export async function syncOneCard(
   invalidateCardMatchIndex(gameKey);
 
   return { success: true, message: `Synced: ${card.name}` };
+}
+
+/**
+ * A card the sync source lists but has no picture for (so no sync can store it), learned from a
+ * photo of the card itself: the source's data, with the photo as its picture. A card already in
+ * the catalog is never replaced, so a wrong photo cannot overwrite a good picture.
+ */
+export async function learnCardFromImage(
+  gameKey: string,
+  cardId: string,
+  lang: string,
+  image: Buffer,
+): Promise<
+  | { success: true; message: string }
+  | { success: false; message: string; status: 400 | 404 | 409 }
+> {
+  const source = SYNC_SOURCES[gameKey];
+  if (!source) {
+    return {
+      success: false,
+      message: `Unknown sync source: ${gameKey}`,
+      status: 400,
+    };
+  }
+  const [existing] = await db
+    .select({ cardId: cardImageVectors.cardId })
+    .from(cardImageVectors)
+    .where(
+      and(
+        eq(cardImageVectors.gameKey, gameKey),
+        eq(cardImageVectors.lang, lang),
+        eq(cardImageVectors.cardId, cardId),
+      ),
+    )
+    .limit(1);
+  if (existing) {
+    return {
+      success: false,
+      message: `${cardId} is already in the catalog`,
+      status: 409,
+    };
+  }
+  const { card, urls } = await source.fetchOne(cardId, source.defaultUrl, lang);
+  if (!card) {
+    const attempted = urls.length > 0 ? ` (tried: ${urls.join(", ")})` : "";
+    return {
+      success: false,
+      message: `Card not found via ${source.label}${attempted}`,
+      status: 404,
+    };
+  }
+  const { embedding } = await vectorizeCardImage(
+    await toPortraitCardImage(image),
+  );
+  const data: unknown = JSON.parse(card.data);
+  await db
+    .insert(cardImageVectors)
+    .values({
+      cardId,
+      gameKey,
+      lang,
+      name: card.name,
+      setCode: card.setCode,
+      collectorNumber: storedCollectorNumber(gameKey, lang, cardId, data),
+      embedding,
+      backEmbedding: null,
+      data: sql`${card.data}::jsonb`,
+      ...catalogColumnsFor(gameKey, lang, cardId, data),
+    })
+    .onConflictDoNothing();
+  publicGamesCache.invalidate();
+  return { success: true, message: `Learned from a scan: ${card.name}` };
 }
