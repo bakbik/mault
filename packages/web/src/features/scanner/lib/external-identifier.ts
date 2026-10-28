@@ -1,4 +1,6 @@
+import { learnCard } from "@/features/cards/api/card";
 import { getCardById } from "@/features/cards/api/card-search";
+import { extractCardImage } from "@/features/scanner/lib/card-detection";
 import type { ScanOutcome } from "@/lib/interfaces/scanner";
 import { runtimeEnv } from "@/lib/runtime-env";
 import { scanLog } from "@/lib/scan-log";
@@ -14,9 +16,14 @@ import type {
  * answer within EXTERNAL_IDENTIFY_TIMEOUT_MS) becomes an unmatched scan with the reason.
  *
  * The service answers POST /identify (the full frame as JPEG; headers X-Corners with the detected
- * card corners in frame pixels, X-Mault-Card with the scanner's own answer) with
- * { card_id, lang, price_usd? } or { failed: reason }, and GET /health. price_usd, when given,
- * replaces the card's own USD price, so price rules sort by the service's price.
+ * card corners in frame pixels, X-Mault-Card with the scanner's own answer, X-Collection-Lang with
+ * the collection's language) with { card_id, lang, price_usd? } or { failed: reason }, and
+ * GET /health. price_usd, when given, replaces the card's own USD price, so price rules sort by
+ * the service's price.
+ *
+ * A card the service names that the catalog lacks (its source lists it without a picture, so no
+ * sync could store it) is learned from this scan: stored with the scanned card as its picture,
+ * so the next copy matches on its own. A card already in the catalog is never replaced.
  */
 const SERVICE_URL = (runtimeEnv("VITE_EXTERNAL_IDENTIFIER_URL") ?? "").replace(
   /\/+$/,
@@ -72,6 +79,7 @@ export async function identifyExternally(
   canvas: HTMLCanvasElement,
   contour: CardContour | null,
   scannerCardId: string | null,
+  collectionLang?: string,
 ): Promise<ExternalAnswer> {
   if (serviceDown) {
     try {
@@ -98,6 +106,7 @@ export async function identifyExternally(
       );
     }
     if (scannerCardId) headers["X-Mault-Card"] = scannerCardId;
+    if (collectionLang) headers["X-Collection-Lang"] = collectionLang;
     const response = await fetchWithin(
       `${SERVICE_URL}/identify`,
       { method: "POST", body: await frameAsJpeg(canvas), headers },
@@ -192,14 +201,39 @@ function unmatched(outcome: ScanOutcome, reason: string): ScanOutcome {
 }
 
 /**
+ * Store a card the catalog lacks, with the card cut from this frame as its picture. Returns
+ * null when it was stored, else why not.
+ */
+async function learnFromScan(
+  cardId: string,
+  canvas: HTMLCanvasElement,
+  contour: CardContour | null,
+  collectionGuid: string | undefined,
+): Promise<string | null> {
+  if (!contour) return "no card outline in the frame";
+  try {
+    const formData = new FormData();
+    formData.append("image", await frameAsJpeg(extractCardImage(canvas, contour)), "card.jpg");
+    formData.append("cardId", cardId);
+    if (collectionGuid) formData.append("collectionGuid", collectionGuid);
+    const result = await learnCard(formData);
+    return result.success ? null : result.message;
+  } catch (err) {
+    return describe(err);
+  }
+}
+
+/**
  * The scan outcome with the external identifier's decision, when one is configured: its card
- * (looked up in this catalog) replaces the scanner's match; anything else makes the scan
- * unmatched with the reason. Without one, the outcome unchanged.
+ * (looked up in this catalog, or learned from this scan when the catalog lacks it) replaces the
+ * scanner's match; anything else makes the scan unmatched with the reason. Without one, the
+ * outcome unchanged.
  */
 export async function withExternalIdentifier(
   outcome: ScanOutcome,
   canvas: HTMLCanvasElement,
   collectionGuid: string | undefined,
+  collectionLang?: string,
 ): Promise<ScanOutcome> {
   if (!externalIdentifierEnabled()) return outcome;
   const scannerCardId = outcome.card?.id ?? null;
@@ -207,6 +241,7 @@ export async function withExternalIdentifier(
     canvas,
     outcome.detectedContour,
     scannerCardId,
+    collectionLang,
   );
   if (answer.kind !== "card") {
     scanLog(`[scanner] external identifier: ${answer.kind}: ${answer.reason}`);
@@ -221,8 +256,25 @@ export async function withExternalIdentifier(
   if (answer.cardId === scannerCardId && outcome.card) {
     return { ...outcome, card: priced(outcome.card), alternativeMatches: [] };
   }
+  const lookUp = () => getCardById(answer.cardId, collectionGuid, answer.lang);
   try {
-    const found = await getCardById(answer.cardId, collectionGuid, answer.lang);
+    let found = await lookUp();
+    if (!found.data) {
+      const notLearned = await learnFromScan(
+        answer.cardId,
+        canvas,
+        outcome.detectedContour,
+        collectionGuid,
+      );
+      if (notLearned) {
+        return unmatched(
+          outcome,
+          `not in Mault's catalog and not learned: ${answer.cardId} (${notLearned})`,
+        );
+      }
+      scanLog(`[scanner] learned ${answer.cardId} from this scan`);
+      found = await lookUp();
+    }
     if (found.data) {
       return {
         ...outcome,
