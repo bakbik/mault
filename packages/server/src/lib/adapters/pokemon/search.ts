@@ -23,6 +23,24 @@ function assetUrl(image: string, quality: "low" | "high"): string {
   return proxiedImageUrl(`${image}/${quality}.webp`);
 }
 
+/**
+ * The source's picture, or this install's own for a set the source lists without any: such a set
+ * goes in LOCAL_CARD_PICTURE_SETS ("ja/M6a,ja/M5") with its files served at
+ * /card-images/<lang>/<set>/<number>/{low,high}.webp.
+ */
+function pictureUrl(
+  raw: PokemonCardDetail,
+  lang: string | undefined,
+  quality: "low" | "high",
+): string {
+  if (raw.image) return assetUrl(raw.image, quality);
+  const set = raw.set?.id;
+  const listed = (process.env.LOCAL_CARD_PICTURE_SETS ?? "").split(",");
+  return set && raw.localId && listed.includes(`${lang}/${set}`)
+    ? `/card-images/${lang}/${set}/${raw.localId}/${quality}.webp`
+    : "";
+}
+
 function urlForLang(lang: string): string {
   return POKEMON_DEFAULT_URL.replace(/\/v2\/[^/]+\//, `/v2/${lang}/`);
 }
@@ -46,9 +64,9 @@ function resolveTcgplayerId(
   return productId != null ? String(productId) : undefined;
 }
 
-function normalizePokemonCard(raw: PokemonCardDetail): PlayingCard {
-  const small = raw.image ? assetUrl(raw.image, "low") : "";
-  const large = raw.image ? assetUrl(raw.image, "high") : "";
+function normalizePokemonCard(raw: PokemonCardDetail, lang?: string): PlayingCard {
+  const small = pictureUrl(raw, lang, "low");
+  const large = pictureUrl(raw, lang, "high");
   const attackText = (raw.attacks ?? [])
     .map((a) =>
       [a.name, a.damage != null ? `(${a.damage})` : "", a.effect]
@@ -113,7 +131,8 @@ export async function fetchDetail(
 export const pokemonAdapter: CardSearchAdapter = {
   defaultUrl: POKEMON_DEFAULT_URL,
   urlForLang,
-  normalizeStored: (raw) => normalizePokemonCard(raw as PokemonCardDetail),
+  normalizeStored: (raw, _id, lang) =>
+    normalizePokemonCard(raw as PokemonCardDetail, lang),
   excludedFromMatchingSql: sql`(data->>'image') LIKE '%/tcgp/%'`,
   printedSetTotalSql: sql`CASE WHEN data->'set'->'cardCount'->>'official' ~ '^[0-9]+$' THEN (data->'set'->'cardCount'->>'official')::int END`,
   printingMarkGroups: pokemonPrintingMarkGroups,
