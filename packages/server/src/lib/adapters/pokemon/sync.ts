@@ -5,6 +5,7 @@ import { POKEMON_DEFAULT_URL } from "../../constants/urls";
 import {
   POKEMON_DETAIL_CONCURRENCY,
   POKEMON_DETAIL_LOG_EVERY,
+  POKEMON_DETAIL_RETRY_DELAYS_MS,
   POKEMON_DIGITAL_ONLY_SERIES_IDS,
   POKEMON_SYNC_PAGE_LIMIT,
 } from "../../constants/sync";
@@ -33,43 +34,64 @@ function toSyncCard(raw: PokemonCardBrief | PokemonCardDetail): SyncSourceCard {
   );
 }
 
-async function fetchDetails(
+/**
+ * The brief listing has no set, rarity or type, so a card stored from it shows up blank. The list
+ * runs in card-number order across sets, so a short outage at the source hits a whole stretch of
+ * numbers (every set's 28-31, say) and the immediate second try lands in the same outage: cards
+ * that failed are tried again after each pause in `retryDelaysMs`.
+ */
+export async function fetchDetails(
   briefs: PokemonCardBrief[],
   baseUrl: string,
   addLog: (msg: string) => void,
   signal?: AbortSignal,
+  retryDelaysMs: readonly number[] = POKEMON_DETAIL_RETRY_DELAYS_MS,
 ): Promise<SyncSourceCard[]> {
   addLog(`Fetching full details for ${briefs.length} cards...`);
 
   const results: SyncSourceCard[] = new Array(briefs.length);
-  let next = 0;
-  let done = 0;
-  let fellBack = 0;
+  let failed: number[] = [];
 
-  async function worker(): Promise<void> {
-    while (next < briefs.length && !signal?.aborted) {
-      const index = next++;
-      const brief = briefs[index];
-      const detail =
-        (await fetchDetail(brief.id, baseUrl, signal).catch(() => null)) ??
-        (await fetchDetail(brief.id, baseUrl, signal).catch(() => null));
-      if (!detail) fellBack++;
+  async function fetchAll(indexes: number[], logProgress: boolean): Promise<void> {
+    let next = 0;
+    let done = 0;
+    async function worker(): Promise<void> {
+      while (next < indexes.length && !signal?.aborted) {
+        const index = indexes[next++];
+        const brief = briefs[index];
+        const detail =
+          (await fetchDetail(brief.id, baseUrl, signal).catch(() => null)) ??
+          (await fetchDetail(brief.id, baseUrl, signal).catch(() => null));
+        if (detail) results[index] = toSyncCard(detail);
+        else {
+          results[index] ??= toSyncCard(brief);
+          failed.push(index);
+        }
 
-      results[index] = toSyncCard(detail ?? brief);
-
-      done++;
-      if (done % POKEMON_DETAIL_LOG_EVERY === 0) {
-        addLog(`Fetched details for ${done}/${briefs.length} cards...`);
+        done++;
+        if (logProgress && done % POKEMON_DETAIL_LOG_EVERY === 0) {
+          addLog(`Fetched details for ${done}/${indexes.length} cards...`);
+        }
       }
     }
+    await Promise.all(Array.from({ length: POKEMON_DETAIL_CONCURRENCY }, worker));
+    if (signal?.aborted) throw new Error("Pokémon detail fetch aborted");
   }
 
-  await Promise.all(Array.from({ length: POKEMON_DETAIL_CONCURRENCY }, worker));
-  if (signal?.aborted) throw new Error("Pokémon detail fetch aborted");
+  await fetchAll(briefs.map((_, index) => index), true);
+  for (const delayMs of retryDelaysMs) {
+    if (failed.length === 0) break;
+    const retry = failed.sort((a, b) => a - b);
+    failed = [];
+    addLog(`${retry.length} cards' details failed; trying them again in ${Math.round(delayMs / 1000)} s...`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await fetchAll(retry, false);
+  }
 
-  if (fellBack > 0) {
+  if (failed.length > 0) {
+    const ids = failed.sort((a, b) => a - b).map((index) => briefs[index].id);
     addLog(
-      `${fellBack} cards' details could not be fetched; stored their brief listing instead.`,
+      `${ids.length} cards' details could not be fetched; stored their brief listing instead: ${ids.join(", ")}`,
     );
   }
   return results;
