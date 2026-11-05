@@ -17,10 +17,13 @@ import type {
   CardSearchAdapter,
   TcgplayerFinishProduct,
   TcgplayerPricing,
+  TcgplayerProductMatch,
   TcgplayerStampProduct,
   TcgplayerSubTypes,
 } from "../interfaces/card-search";
 import { median } from "../statistics";
+
+type ResolvedFinishProduct = TcgplayerFinishProduct & { productId: number };
 
 export function tcgplayerProductIdOf(
   pricing: TcgplayerPricing,
@@ -35,15 +38,10 @@ export function skuLanguageCode(language: string): string {
   return TCGTRACKING_SKU_LANGUAGE_CODES[normalized] ?? normalized.toUpperCase();
 }
 
-async function resolveProductIds(
-  pricing: TcgplayerPricing,
-  cards: PlayingCard[],
+async function matchedProductIds(
+  categoryId: number,
+  matches: (TcgplayerProductMatch | null | undefined)[],
 ): Promise<number[][]> {
-  const direct = cards.map((card) => tcgplayerProductIdOf(pricing, card));
-  const matches = cards.map((card, i) =>
-    direct[i] === null ? (pricing.productMatch?.(card) ?? null) : null,
-  );
-
   const numbers = [...new Set(matches.flatMap((m) => m?.numbers ?? []))];
   const candidates =
     numbers.length === 0
@@ -54,11 +52,12 @@ async function resolveProductIds(
             number: tcgplayerProducts.number,
             name: tcgplayerProducts.name,
             rarity: tcgplayerProducts.rarity,
+            groupName: tcgplayerProducts.groupName,
           })
           .from(tcgplayerProducts)
           .where(
             and(
-              eq(tcgplayerProducts.categoryId, pricing.categoryId),
+              eq(tcgplayerProducts.categoryId, categoryId),
               inArray(tcgplayerProducts.number, numbers),
             ),
           );
@@ -68,10 +67,7 @@ async function resolveProductIds(
     byNumber.set(key, [...(byNumber.get(key) ?? []), candidate]);
   }
 
-  return cards.map((_, i) => {
-    const id = direct[i];
-    if (id !== null) return [id];
-    const match = matches[i];
+  return matches.map((match) => {
     if (!match) return [];
     const ids = match.numbers
       .flatMap((number) => byNumber.get(number) ?? [])
@@ -79,6 +75,44 @@ async function resolveProductIds(
       .map((product) => product.productId);
     return [...new Set(ids)];
   });
+}
+
+async function resolveProductIds(
+  pricing: TcgplayerPricing,
+  cards: PlayingCard[],
+): Promise<number[][]> {
+  const direct = cards.map((card) => tcgplayerProductIdOf(pricing, card));
+  const matched = await matchedProductIds(
+    pricing.categoryId,
+    cards.map((card, i) =>
+      direct[i] === null ? (pricing.productMatch?.(card) ?? null) : null,
+    ),
+  );
+  return cards.map((_, i) => {
+    const id = direct[i];
+    return id !== null ? [id] : matched[i];
+  });
+}
+
+/** A finish the source names no product for takes the one its match finds, if exactly one. */
+async function resolveFinishProducts(
+  pricing: TcgplayerPricing,
+  cards: PlayingCard[],
+): Promise<ResolvedFinishProduct[][]> {
+  const finishes = cards.map((card) => pricing.finishProducts?.(card) ?? []);
+  const flat = finishes.flat();
+  const matched = await matchedProductIds(
+    pricing.categoryId,
+    flat.map((finish) => (finish.productId === null ? finish.match : null)),
+  );
+  let next = 0;
+  return finishes.map((cardFinishes) =>
+    cardFinishes.flatMap((finish) => {
+      const ids = matched[next++];
+      const productId = finish.productId ?? (ids.length === 1 ? ids[0] : null);
+      return productId === null ? [] : [{ ...finish, productId }];
+    }),
+  );
 }
 
 function combineRanges(
@@ -110,7 +144,7 @@ function combineConditionPrices(
 }
 
 function finishPricesFor(
-  finishes: TcgplayerFinishProduct[],
+  finishes: ResolvedFinishProduct[],
   rangeOf: (productId: number, subTypes: string[]) => PlayingCardPriceRange | undefined,
   conditionPricesOf: (productId: number, subTypes: string[]) => CardConditionPrices | undefined,
 ): Record<string, CardFinishPrices> | undefined {
@@ -188,11 +222,33 @@ export async function applyTcgplayerPrices<T extends PlayingCard>(
 ): Promise<T[]> {
   const pricing = adapter.tcgplayer;
   if (!pricing) return cards;
+  const categoryIdOf = pricing.categoryIdOf;
+  if (!categoryIdOf) return applyCategoryPrices(pricing, cards);
 
+  const byCategory = new Map<number, number[]>();
+  cards.forEach((card, i) => {
+    const categoryId = categoryIdOf(card);
+    byCategory.set(categoryId, [...(byCategory.get(categoryId) ?? []), i]);
+  });
+  const priced = [...cards];
+  for (const [categoryId, indexes] of byCategory) {
+    const group = await applyCategoryPrices(
+      { ...pricing, categoryId },
+      indexes.map((i) => cards[i]),
+    );
+    indexes.forEach((i, j) => {
+      priced[i] = group[j];
+    });
+  }
+  return priced;
+}
+
+async function applyCategoryPrices<T extends PlayingCard>(
+  pricing: TcgplayerPricing,
+  cards: T[],
+): Promise<T[]> {
   const productIdsByCard = await resolveProductIds(pricing, cards);
-  const finishProductsByCard = cards.map(
-    (card) => pricing.finishProducts?.(card) ?? [],
-  );
+  const finishProductsByCard = await resolveFinishProducts(pricing, cards);
   const stampProductsByCard = cards.map(
     (card) => pricing.stampProducts?.(card) ?? [],
   );

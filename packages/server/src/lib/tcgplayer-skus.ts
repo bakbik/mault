@@ -43,7 +43,7 @@ function skuTargetFor(
     const finish = pricing
       .finishProducts?.(card)
       .find((product) => product.foilType === entry.foilType);
-    if (finish) {
+    if (finish && finish.productId !== null) {
       return { productId: finish.productId, variants: finish.subTypes, condition, languageCode };
     }
   }

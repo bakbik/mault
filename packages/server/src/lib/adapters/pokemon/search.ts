@@ -5,13 +5,18 @@ import { sql } from "drizzle-orm";
 import { fetchCardApi } from "../../card-search/fetch";
 import type { CardSearchAdapter } from "../../interfaces/card-search";
 import {
+  japaneseProductMatch,
+  mainProductId,
   pokemonFinishes,
   pokemonFinishProducts,
   pokemonFoilOnlyFoilType,
   pokemonTcgplayerProductId,
   pokemonListsNonFoilPrinting,
 } from "./finishes";
-import { CARD_API_HEADERS } from "../../constants/card-search";
+import {
+  CARD_API_HEADERS,
+  POKEMON_JAPAN_TCGPLAYER_CATEGORY_ID,
+} from "../../constants/card-search";
 import { POKEMON_FOIL_TYPES_BY_TCGPLAYER_VARIANT } from "../../constants/pokemon";
 import { POKEMON_DEFAULT_URL } from "../../constants/urls";
 import type {
@@ -40,6 +45,8 @@ function pictureUrl(
     ? `/card-images/${lang}/${set}/${raw.localId}/${quality}.webp`
     : "";
 }
+
+const JAPANESE = "ja";
 
 function urlForLang(lang: string): string {
   return POKEMON_DEFAULT_URL.replace(/\/v2\/[^/]+\//, `/v2/${lang}/`);
@@ -81,8 +88,10 @@ function normalizePokemonCard(raw: PokemonCardDetail, lang?: string): PlayingCar
     [raw.effect, raw.description, abilityText, attackText]
       .filter(Boolean)
       .join("\n\n") || undefined;
-  const foilTypes = pokemonFinishes(raw).map((finish) => finish.foilType);
+  const japanese = lang === JAPANESE;
+  const foilTypes = pokemonFinishes(raw, japanese).map((finish) => finish.foilType);
   const stamps = pokemonStamps(raw);
+  const japaneseProduct = japanese ? mainProductId(raw) : null;
   const typeLine =
     [raw.category, raw.stage ?? raw.trainerType ?? raw.energyType]
       .filter(Boolean)
@@ -106,11 +115,14 @@ function normalizePokemonCard(raw: PokemonCardDetail, lang?: string): PlayingCar
     price: resolvePrice(raw.pricing),
     priceFoil: resolveFoilPrice(raw.pricing),
     sourceUrl: `https://tcgdex.dev/cards/${raw.id}`,
-    tcgplayerId: resolveTcgplayerId(raw.pricing),
+    tcgplayerId:
+      resolveTcgplayerId(raw.pricing) ??
+      (japaneseProduct != null ? String(japaneseProduct) : undefined),
     foilTypes: foilTypes.length > 0 ? foilTypes : undefined,
     foilOnlyFoilType: pokemonFoilOnlyFoilType(raw, foilTypes),
     stamps: stamps.length > 0 ? stamps : undefined,
     cmc: raw.retreat,
+    ...(lang ? { lang } : {}),
     raw,
   };
 }
@@ -140,6 +152,14 @@ export const pokemonAdapter: CardSearchAdapter = {
     pokemonListsNonFoilPrinting(card.raw as PokemonCardDetail),
   tcgplayer: {
     categoryId: 3,
+    // Japanese cards are TCGplayer's "Pokemon Japan" category, matched by set code and number
+    // when the source names no product (most Mega-era sets, Pokemon Card 151).
+    categoryIdOf: (card) =>
+      card.lang === JAPANESE ? POKEMON_JAPAN_TCGPLAYER_CATEGORY_ID : 3,
+    productMatch: (card) =>
+      card.lang === JAPANESE
+        ? japaneseProductMatch(card.raw as PokemonCardDetail)
+        : null,
     foilTypeOfVariant: (variant) =>
       POKEMON_FOIL_TYPES_BY_TCGPLAYER_VARIANT[variant] ?? variant,
     productIdFromRaw: (card) =>

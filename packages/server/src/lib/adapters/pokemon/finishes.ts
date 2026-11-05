@@ -6,7 +6,11 @@ import {
   POKEMON_SEPARATE_FINISH_PRODUCT_SUBTYPES,
   POKEMON_STANDARD_VARIANT_SIZE,
 } from "../../constants/pokemon";
-import type { TcgplayerFinishProduct } from "../../interfaces/card-search";
+import type {
+  TcgplayerFinishProduct,
+  TcgplayerProductCandidate,
+  TcgplayerProductMatch,
+} from "../../interfaces/card-search";
 import type {
   PokemonCardDetail,
   PokemonFinish,
@@ -39,7 +43,7 @@ export function pokemonTcgplayerProductId(
   return null;
 }
 
-function mainProductId(raw: PokemonCardDetail): number | null {
+export function mainProductId(raw: PokemonCardDetail): number | null {
   return (
     raw.variants_detailed?.find((variant) => variant.type === "normal")?.thirdParty
       ?.tcgplayer ??
@@ -47,7 +51,50 @@ function mainProductId(raw: PokemonCardDetail): number | null {
   );
 }
 
-export function pokemonFinishes(raw: PokemonCardDetail): PokemonFinish[] {
+/**
+ * A Japanese card's TCGplayer product, found by the printed number ("037/165") in the set whose
+ * TCGplayer group starts with the set's code ("SV2a: Pokemon Card 151"), for cards the source
+ * names no product for. A pattern ("masterball") finds the "(Master Ball Pattern)" product, a
+ * plain reverse holo the "(Mirror Foil)" one, anything else the card's own product.
+ */
+export function japaneseProductMatch(
+  raw: PokemonCardDetail,
+  finish?: { variantType: string; pattern?: string },
+): TcgplayerProductMatch | null {
+  const setId = raw.set?.id;
+  const official = raw.set?.cardCount?.official;
+  if (!setId || !official || !raw.localId || !/^\d+$/.test(raw.localId)) return null;
+  const pad = (value: string | number) => String(value).padStart(3, "0");
+  const group = `${setId.toLowerCase()}:`;
+  const suffix = finish?.pattern
+    ? `(${plainLetters(patternLabel(finish.pattern)).toLowerCase()} pattern)`
+    : finish?.variantType === "reverse"
+      ? "(mirror foil)"
+      : null;
+  return {
+    numbers: [`${pad(raw.localId)}/${pad(official)}`],
+    accepts: (product: TcgplayerProductCandidate) => {
+      if (!(product.groupName ?? "").toLowerCase().startsWith(group)) return false;
+      const name = plainLetters(product.name).toLowerCase().trim();
+      return suffix
+        ? name.endsWith(suffix)
+        : !/\((?:[^()]* pattern|mirror foil)\)$/.test(name);
+    },
+  };
+}
+
+function plainLetters(text: string): string {
+  return text.normalize("NFD").replace(/\p{M}/gu, "");
+}
+
+/**
+ * `separatePatterns`: a patterned variant the source names no product for is still its own
+ * printing (Japanese Poké Ball and Master Ball mirrors), rather than folding into the plain one.
+ */
+export function pokemonFinishes(
+  raw: PokemonCardDetail,
+  separatePatterns = false,
+): PokemonFinish[] {
   const finishes = new Map<string, PokemonFinish>();
   const mainProduct = mainProductId(raw);
   for (const variant of raw.variants_detailed ?? []) {
@@ -60,7 +107,8 @@ export function pokemonFinishes(raw: PokemonCardDetail): PokemonFinish[] {
       continue;
     }
     const productId = variant.thirdParty?.tcgplayer ?? null;
-    const isOwnProduct = productId != null && productId !== mainProduct;
+    const isOwnProduct =
+      productId != null ? productId !== mainProduct : separatePatterns && !!variant.foil;
     const foilType =
       variant.foil && isOwnProduct ? `${base} (${patternLabel(variant.foil)})` : base;
     if (finishes.has(foilType)) continue;
@@ -68,6 +116,7 @@ export function pokemonFinishes(raw: PokemonCardDetail): PokemonFinish[] {
       foilType,
       variantType: variant.type!,
       tcgplayerProductId: productId,
+      ...(variant.foil && isOwnProduct ? { pattern: variant.foil } : {}),
     });
   }
   return [...finishes.values()];
@@ -75,22 +124,36 @@ export function pokemonFinishes(raw: PokemonCardDetail): PokemonFinish[] {
 
 export function pokemonFinishProducts(card: PlayingCard): TcgplayerFinishProduct[] {
   const mainProductId = Number(card.tcgplayerId);
-  return pokemonFinishes(card.raw as PokemonCardDetail).flatMap((finish) =>
-    finish.tcgplayerProductId
-      ? [
-          {
-            foilType: finish.foilType,
-            productId: finish.tcgplayerProductId,
-            subTypes: [
-              ...(POKEMON_FINISH_SUBTYPES[finish.variantType] ?? []),
-              ...(finish.tcgplayerProductId !== mainProductId
-                ? POKEMON_SEPARATE_FINISH_PRODUCT_SUBTYPES
-                : []),
-            ],
-          },
-        ]
-      : [],
-  );
+  const raw = card.raw as PokemonCardDetail;
+  const japanese = card.lang === "ja";
+  return pokemonFinishes(raw, japanese).flatMap((finish): TcgplayerFinishProduct[] => {
+    const subTypes = POKEMON_FINISH_SUBTYPES[finish.variantType] ?? [];
+    if (finish.tcgplayerProductId) {
+      return [
+        {
+          foilType: finish.foilType,
+          productId: finish.tcgplayerProductId,
+          subTypes: [
+            ...subTypes,
+            ...(finish.tcgplayerProductId !== mainProductId
+              ? POKEMON_SEPARATE_FINISH_PRODUCT_SUBTYPES
+              : []),
+          ],
+        },
+      ];
+    }
+    const match = japanese ? japaneseProductMatch(raw, finish) : null;
+    if (!match) return [];
+    const ownProduct = !!finish.pattern || finish.variantType === "reverse";
+    return [
+      {
+        foilType: finish.foilType,
+        productId: null,
+        match,
+        subTypes: [...subTypes, ...(ownProduct ? POKEMON_SEPARATE_FINISH_PRODUCT_SUBTYPES : [])],
+      },
+    ];
+  });
 }
 
 export function pokemonListsNonFoilPrinting(raw: PokemonCardDetail): boolean {

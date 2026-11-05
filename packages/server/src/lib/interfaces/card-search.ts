@@ -25,6 +25,7 @@ export interface TcgplayerSubTypes {
 export interface TcgplayerProductCandidate {
   name: string;
   rarity: string | null;
+  groupName?: string | null;
 }
 
 export interface TcgplayerProductMatch {
@@ -34,7 +35,9 @@ export interface TcgplayerProductMatch {
 
 export interface TcgplayerFinishProduct {
   foilType: string;
-  productId: number;
+  /** Null when the source names no product: then `match` finds it by number. */
+  productId: number | null;
+  match?: TcgplayerProductMatch | null;
   subTypes: string[];
 }
 
@@ -47,6 +50,8 @@ export interface TcgplayerStampProduct {
 
 export interface TcgplayerPricing {
   categoryId: number;
+  /** A card priced from another TCGplayer category than `categoryId` (a game's Japanese cards). */
+  categoryIdOf?(card: PlayingCard): number;
   foilTypeOfVariant?(variantWithoutEdition: string): string;
   subTypes(card: PlayingCard): TcgplayerSubTypes;
   finishProducts?(card: PlayingCard): TcgplayerFinishProduct[];

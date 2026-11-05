@@ -55,6 +55,8 @@ export interface PokemonFinish {
   foilType: string;
   variantType: string;
   tcgplayerProductId: number | null;
+  /** The variant's pattern ("masterball"), for finding a Japanese card's product by name. */
+  pattern?: string;
 }
 
 export interface PokemonCardDetail extends PokemonCardBrief {
@@ -78,6 +80,7 @@ export interface PokemonCardDetail extends PokemonCardBrief {
   set?: {
     id: string;
     name: string;
+    cardCount?: { official?: number; total?: number };
   };
   legal?: {
     standard?: boolean;
