@@ -3,6 +3,7 @@ import { sql, type SQL } from "drizzle-orm";
 import type { Transaction } from "../../db";
 import {
   cardPriceValueSql,
+  printingPriceSql,
   storedCardPriceDetailsSql,
 } from "../card-price-sql";
 import { ADAPTERS_BY_GAME_KEY } from "../card-search/resolve";
@@ -60,6 +61,7 @@ async function selectCards(
       ${cardPriceValueSql("priceFoil", CC_ALIAS_SQL_COLUMNS)} AS price_usd_foil,
       ${cardPriceValueSql("priceEur", CC_ALIAS_SQL_COLUMNS)} AS price_eur,
       ${cardPriceValueSql("priceEurFoil", CC_ALIAS_SQL_COLUMNS)} AS price_eur_foil,
+      ${printingPriceSql(CC_ALIAS_SQL_COLUMNS)} AS price_usd_printing,
       ${storedCardPriceDetailsSql(CC_ALIAS_SQL_COLUMNS)} AS stored_price_details,
       jsonb_build_object(
         'cardmarketPrice', cc.card -> 'cardmarketPrice',
@@ -174,6 +176,7 @@ export function toApiScannedCard(row: PublicApiCardRow): ApiScannedCard {
       usd_foil: formatPrice(row.price_usd_foil),
       eur: formatPrice(row.price_eur),
       eur_foil: formatPrice(row.price_eur_foil),
+      usd_printing: formatPrice(row.price_usd_printing),
     },
     purchase_uris: toApiPurchaseUris(
       row,

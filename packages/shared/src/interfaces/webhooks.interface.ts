@@ -55,6 +55,8 @@ export interface WebhookPayload<T> {
 
 export type CardScannedWebhookData = ApiScannedCard;
 
+export type CardUpdatedWebhookData = ApiScannedCard;
+
 export interface CardsStoredWebhookData {
   object: "stored_cards";
   location: ApiLocationRef;

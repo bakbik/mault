@@ -1,6 +1,7 @@
 import type {
   CardScannedWebhookData,
   CardsStoredWebhookData,
+  CardUpdatedWebhookData,
   SorterAlertWebhookData,
   WebhookEvent,
   WebhookEventType,
@@ -78,6 +79,21 @@ export function emitCardScannedWebhook(orgId: string, scanId: string): void {
     );
     if (!card) return;
     await dispatch<CardScannedWebhookData>(endpointIds, "card.scanned", card);
+  });
+}
+
+/** One card.updated event per changed card, carrying the card as it is now. */
+export function emitCardsUpdatedWebhook(orgId: string, scanIds: string[]): void {
+  if (scanIds.length === 0) return;
+  enqueueWebhookJob(async () => {
+    const endpointIds = await loadSubscribedEndpointIds(orgId, "card.updated");
+    if (endpointIds.length === 0) return;
+    const cards = await apiKeyQuery(orgId, (tx) =>
+      loadPublicApiCardsByScanIds(tx, orgId, scanIds),
+    );
+    for (const card of cards) {
+      await dispatch<CardUpdatedWebhookData>(endpointIds, "card.updated", card);
+    }
   });
 }
 

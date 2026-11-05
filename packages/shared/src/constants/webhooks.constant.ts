@@ -1,6 +1,7 @@
 export const WEBHOOK_EVENTS = [
   "card.scanned",
   "cards.stored",
+  "card.updated",
   "sorter.alert",
 ] as const;
 export const WEBHOOK_TEST_EVENT = "webhook.test";

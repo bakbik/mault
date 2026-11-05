@@ -65,6 +65,22 @@ export function cardPriceValueSql(
   >`COALESCE(${storedCardPriceSql(key, cols)}, ${savedCardPriceSql(key, cols)})`;
 }
 
+/**
+ * The NM market price of the copy's own printing: a foil's foil type priced as its own product
+ * (finishPrices, e.g. a Master Ball mirror), else the card's foil price; a non-foil's plain price.
+ */
+export function printingPriceSql(
+  cols: ScannedCardSqlColumns = COLLECTION_CARD_SQL_COLUMNS,
+): SQL<number | null> {
+  const finish = storedCardPriceSelect(
+    cols,
+    sql`(cp.details -> 'finishPrices' -> ${cols.foilType} ->> 'priceFoil')::float8`,
+  );
+  return sql<number | null>`(CASE WHEN ${cols.isFoil}
+    THEN COALESCE(${finish}, ${cardPriceValueSql("priceFoil", cols)})
+    ELSE ${cardPriceValueSql("price", cols)} END)`;
+}
+
 export function conditionFactorSql(
   condition: SQL | AnyColumn,
   multipliers: ConditionMultipliers,

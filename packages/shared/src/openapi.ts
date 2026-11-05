@@ -17,6 +17,7 @@ import type {
 import {
   apiCardScannedEventSchema,
   apiCardsStoredEventSchema,
+  apiCardUpdatedEventSchema,
   apiErrorSchema,
   apiSorterAlertEventSchema,
   apiWebhookTestEventSchema,
@@ -223,6 +224,11 @@ export function buildPublicApiOpenApiDocument({
         apiCardsStoredEventSchema,
         "Cards stored",
         "A bin was put away into a storage location. At most 200 cards per event.",
+      ),
+      "card.updated": webhook(
+        apiCardUpdatedEventSchema,
+        "Card updated",
+        "Someone changed a saved card after its scan: the card itself, its foil or foil type, its condition or its language. Carries the card as it is now.",
       ),
       "sorter.alert": webhook(
         apiSorterAlertEventSchema,

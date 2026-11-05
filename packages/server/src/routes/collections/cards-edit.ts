@@ -12,6 +12,7 @@ import { logActivity } from "../../lib/activity-log";
 import { collectionCards } from "../../db/schema";
 import { markScanCorrected } from "../../lib/scan-stats";
 import { emitToSession } from "../../lib/session-stream";
+import { emitCardsUpdatedWebhook } from "../../lib/webhooks/events";
 import { requireAuth, requireOrg, type AppEnv } from "../../middleware/auth";
 import { toScannedCard } from "./shared";
 import { databaseErrorResponse } from "../../lib/database-error-response";
@@ -163,6 +164,10 @@ export const editCollectionCardRoute = new Hono<AppEnv>().put(
       if (result.success) {
         if (card !== undefined) void markScanCorrected(scanId);
         emitToSession(guid, "card_updated", result.data);
+        const changesCard = [card, isFoil, foilType, condition, language].some(
+          (value) => value !== undefined,
+        );
+        if (changesCard) emitCardsUpdatedWebhook(orgId, [scanId]);
       }
       return c.json(result);
     } catch (err) {

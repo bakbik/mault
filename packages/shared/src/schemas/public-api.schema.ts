@@ -87,6 +87,9 @@ export const apiPricesSchema = z
     usd_foil: price.describe("TCGplayer foil market price."),
     eur: price.describe("Cardmarket average sell price."),
     eur_foil: price.describe("Cardmarket foil average sell price."),
+    usd_printing: price.describe(
+      "TCGplayer market price of this copy's printing: its foil type's own price when the card has one (a Master Ball mirror), else usd_foil for a foil and usd otherwise.",
+    ),
   })
   .meta({ id: "Prices" });
 
@@ -270,6 +273,11 @@ export const apiCardsStoredEventSchema = eventSchema(
   "cards.stored",
   apiStoredCardsSchema,
 ).meta({ id: "CardsStoredEvent" });
+
+export const apiCardUpdatedEventSchema = eventSchema(
+  "card.updated",
+  apiScannedCardSchema,
+).meta({ id: "CardUpdatedEvent" });
 
 export const apiSorterAlertEventSchema = eventSchema(
   "sorter.alert",

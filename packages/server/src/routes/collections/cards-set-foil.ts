@@ -10,6 +10,7 @@ import { findFoilPrinting } from "../../lib/card-search/foil-printing";
 import { resolveGameKeyAndLang } from "../../lib/card-search/resolve";
 import { hydrateSavedCards, toSavedCardSnapshots } from "../../lib/saved-cards";
 import { emitToSession } from "../../lib/session-stream";
+import { emitCardsUpdatedWebhook } from "../../lib/webhooks/events";
 import { requireAuth, requireOrg, type AppEnv } from "../../middleware/auth";
 import { toScannedCard } from "./shared";
 
@@ -83,6 +84,7 @@ export const setCollectionCardsFoilTypeRoute = new Hono<AppEnv>().post(
       return swapped;
     });
     emitToSession(guid, "cards_foil_changed", { scanIds, isFoil, foilType });
+    emitCardsUpdatedWebhook(orgId, scanIds);
     for (const scan of swappedScans) emitToSession(guid, "card_updated", scan);
     return c.json({ success: true, data: null });
   },
