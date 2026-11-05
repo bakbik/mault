@@ -744,6 +744,7 @@
     "sort": {
       "title": "Trier par",
       "scanOrder": "Ordre de scan (plus récents d'abord)",
+      "setNumber": "Numéro dans le set",
       "ascending": "{{field}}, croissant",
       "descending": "{{field}}, décroissant"
     },

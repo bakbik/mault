@@ -6,6 +6,11 @@ export const PAGE_SIZE_OPTIONS: readonly number[] = [25, 50, 75, 100];
 
 export const DEFAULT_CARD_SORT = "scan-desc";
 
+/** Built-in sort for every game: set code, then collector number, both in natural order. */
+export const SET_NUMBER_SORT_FIELD = "set-number";
+export const SET_NUMBER_SORT_ASC = `${SET_NUMBER_SORT_FIELD}-asc`;
+export const SET_NUMBER_SORT_DESC = `${SET_NUMBER_SORT_FIELD}-desc`;
+
 export const EMPTY_CARD_FILTERS: CardFilters = {
   colors: [],
   rarities: [],

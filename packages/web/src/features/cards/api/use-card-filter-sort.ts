@@ -5,6 +5,7 @@ import {
   type ScannedCard,
   EMPTY_CARD_FILTERS,
   type CardFilters,
+  SET_NUMBER_SORT_FIELD,
   SORTABLE_FIELD_TYPES,
 } from "@magic-vault/shared";
 import { useEffect, useMemo, useState } from "react";
@@ -99,6 +100,7 @@ export function useCardQueryState(
   useEffect(() => {
     if (!sortKey || sortKey === DEFAULT_CARD_SORT) return;
     const { field } = splitSortKey(sortKey);
+    if (field === SET_NUMBER_SORT_FIELD) return;
     if (!fieldDefinitions.some((f) => f.field === field)) {
       setSortKey(DEFAULT_CARD_SORT);
     }

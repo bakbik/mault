@@ -2,6 +2,7 @@ import {
   cardSortDirectionForField,
   DEFAULT_CARD_SORT,
   nextCardSortKeyForField,
+  SET_NUMBER_SORT_FIELD,
   SORTABLE_FIELD_TYPES,
   type CardFilters,
   type FieldMeta,
@@ -26,6 +27,11 @@ export function cardSortOptions(
   selectedSort: string | null,
   t: TFunction,
 ): CardSortOption[] {
+  // Set number works for every game, so it leads the game's own sortable fields.
+  const sortable = [
+    { field: SET_NUMBER_SORT_FIELD, label: t("collection.sort.setNumber") },
+    ...fieldDefinitions.filter((field) => SORTABLE_FIELD_TYPES.includes(field.type)),
+  ];
   return [
     {
       key: DEFAULT_CARD_SORT,
@@ -33,8 +39,7 @@ export function cardSortOptions(
       selected: !selectedSort || selectedSort === DEFAULT_CARD_SORT,
       sortKeyOnPress: DEFAULT_CARD_SORT,
     },
-    ...fieldDefinitions
-      .filter((field) => SORTABLE_FIELD_TYPES.includes(field.type))
+    ...sortable
       .map((field) => {
         const direction = cardSortDirectionForField(selectedSort, field.field);
         return {

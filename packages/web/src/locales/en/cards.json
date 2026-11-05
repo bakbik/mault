@@ -162,6 +162,7 @@
     "clearSearchAndFilters": "Clear search and filters",
     "sortPlaceholder": "Sort by...",
     "scanOrder": "Scan Order",
+    "sortSetNumber": "Set Number",
     "sortAscString": "A-Z",
     "sortDescString": "Z-A",
     "sortAscDefault": "Low-High",

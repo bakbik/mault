@@ -7,6 +7,7 @@ import {
   cardSortDirectionForField,
   DEFAULT_CARD_SORT,
   nextCardSortKeyForField,
+  SET_NUMBER_SORT_FIELD,
   type CardSortDirection,
   type FieldMeta,
 } from "@magic-vault/shared";
@@ -79,6 +80,7 @@ export function CardSortOptions({
   const optionListRef = useRef<HTMLDivElement>(null);
   const activeOptionRef = useRef<HTMLButtonElement>(null);
   const isScanOrderActive = !sortKey || sortKey === DEFAULT_CARD_SORT;
+  const setNumberDirection = cardSortDirectionForField(sortKey, SET_NUMBER_SORT_FIELD);
 
   useEffect(() => {
     const optionList = optionListRef.current;
@@ -99,6 +101,20 @@ export function CardSortOptions({
         label={defaultSortLabel ?? t("cardToolbar.scanOrder")}
         active={isScanOrderActive}
         onSelect={() => onSortChange(DEFAULT_CARD_SORT)}
+      />
+      <SortOption
+        ref={setNumberDirection ? activeOptionRef : undefined}
+        label={t("cardToolbar.sortSetNumber")}
+        directionLabel={
+          setNumberDirection
+            ? sortDirectionLabel("numeric", setNumberDirection, t)
+            : undefined
+        }
+        direction={setNumberDirection}
+        active={setNumberDirection !== null}
+        onSelect={() =>
+          onSortChange(nextCardSortKeyForField(sortKey, SET_NUMBER_SORT_FIELD))
+        }
       />
       {sortableFields.map((field) => {
         const direction = cardSortDirectionForField(sortKey, field.field);

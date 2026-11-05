@@ -38,6 +38,7 @@ import {
 import { cardCatalogJoinSql } from "../../lib/card-catalog-sql";
 import { CATALOG_CC_ALIAS_COLUMNS } from "../../lib/constants/saved-cards";
 import { hydrateSavedScans } from "../../lib/saved-cards";
+import { setNumberOrderSql, setNumberSortDirection } from "../../lib/set-number-sort";
 import type {
   CardPriceDetailKey,
   CardPriceKey,
@@ -315,6 +316,8 @@ export function cardSortKeySql(
   sort: string | null,
   fieldDefinitions: FieldMeta[],
 ): SQL | null {
+  const setNumberDir = setNumberSortDirection(sort);
+  if (setNumberDir) return setNumberOrderSql(setNumberDir);
   const sorted = sortField(sort, fieldDefinitions);
   if (!sorted) return null;
   const { meta, dir } = sorted;

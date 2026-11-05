@@ -162,6 +162,7 @@
     "clearSearchAndFilters": "Suche und Filter zurücksetzen",
     "sortPlaceholder": "Sortieren nach...",
     "scanOrder": "Scan-Reihenfolge",
+    "sortSetNumber": "Set-Nummer",
     "sortAscString": "A-Z",
     "sortDescString": "Z-A",
     "sortAscDefault": "Niedrig-Hoch",

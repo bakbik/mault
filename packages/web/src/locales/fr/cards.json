@@ -162,6 +162,7 @@
     "clearSearchAndFilters": "Effacer la recherche et les filtres",
     "sortPlaceholder": "Trier par...",
     "scanOrder": "Ordre de scan",
+    "sortSetNumber": "Numéro dans le set",
     "sortAscString": "A-Z",
     "sortDescString": "Z-A",
     "sortAscDefault": "Croissant",
