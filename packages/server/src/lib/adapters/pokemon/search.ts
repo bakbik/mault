@@ -12,6 +12,7 @@ import {
   pokemonFoilOnlyFoilType,
   pokemonTcgplayerProductId,
   pokemonListsNonFoilPrinting,
+  separatesPatterns,
 } from "./finishes";
 import {
   CARD_API_HEADERS,
@@ -89,7 +90,7 @@ function normalizePokemonCard(raw: PokemonCardDetail, lang?: string): PlayingCar
       .filter(Boolean)
       .join("\n\n") || undefined;
   const japanese = lang === JAPANESE;
-  const foilTypes = pokemonFinishes(raw, japanese).map((finish) => finish.foilType);
+  const foilTypes = pokemonFinishes(raw, separatesPatterns(lang)).map((finish) => finish.foilType);
   const stamps = pokemonStamps(raw);
   const japaneseProduct = japanese ? mainProductId(raw) : null;
   const typeLine =

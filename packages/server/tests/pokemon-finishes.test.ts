@@ -12,6 +12,7 @@ import {
   pokemonFoilOnlyFoilType,
   pokemonListsNonFoilPrinting,
   pokemonTcgplayerProductId,
+  separatesPatterns,
 } from "../src/lib/adapters/pokemon/finishes";
 import type { PokemonCardDetail } from "../src/lib/interfaces/pokemon";
 
@@ -166,4 +167,30 @@ test("only the variants decide, preferring a listed holo finish", () => {
   assert.equal(pokemonFoilOnlyFoilType(reverseOnly, []), "Reverse Holo");
   assert.equal(pokemonFoilOnlyFoilType(pricedReverseOnly, []), undefined);
   assert.equal(pokemonFoilOnlyFoilType({ id: "x-3", localId: "3", name: "Psyduck" }, []), undefined);
+});
+
+test("Simplified Chinese patterned mirrors are finishes of their own, as Japanese ones", () => {
+  const chinese: PokemonCardDetail = {
+    id: "CSV8C-129",
+    localId: "129",
+    name: "Whirlipede",
+    variants_detailed: [
+      { type: "normal" },
+      { type: "holo" },
+      { type: "reverse" },
+      { type: "reverse", foil: "pokeball" },
+      { type: "reverse", foil: "masterball" },
+    ],
+  };
+  assert.equal(separatesPatterns("zh-cn"), true);
+  assert.equal(separatesPatterns("ja"), true);
+  assert.equal(separatesPatterns("en"), false);
+  assert.deepEqual(
+    pokemonFinishes(chinese, separatesPatterns("zh-cn")).map((finish) => finish.foilType),
+    ["Holo", "Reverse Holo", "Reverse Holo (Poké Ball)", "Reverse Holo (Master Ball)"],
+  );
+  assert.deepEqual(
+    pokemonFinishes(chinese, separatesPatterns("en")).map((finish) => finish.foilType),
+    ["Holo", "Reverse Holo"],
+  );
 });

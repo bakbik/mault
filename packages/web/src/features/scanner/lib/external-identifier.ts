@@ -294,3 +294,56 @@ export async function withExternalIdentifier(
   }
   return unmatched(outcome, `not in Mault's catalog: ${answer.cardId}`);
 }
+
+export interface OwnPrice {
+  priceUsd: number | null;
+  links: { label: string; url: string }[];
+}
+
+/**
+ * The owner's own price (USD) of a scanned copy, which the external service keeps rather than
+ * Mault: GET /scans/<scan guid>/price answers { price_usd, links: [{ label, url }] } (where to look
+ * a price up), or 404 for a scan it never read. null when no service is set up or it doesn't know
+ * the scan.
+ */
+export async function fetchOwnPrice(scanId: string): Promise<OwnPrice | null> {
+  if (!externalIdentifierEnabled()) return null;
+  const response = await fetchWithin(
+    `${SERVICE_URL}/scans/${encodeURIComponent(scanId)}/price`,
+    {},
+    HEALTH_TIMEOUT_MS * 2,
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`the price service answered ${response.status}`);
+  const body = (await response.json()) as {
+    price_usd?: number | null;
+    links?: { label?: unknown; url?: unknown }[];
+  };
+  const links = (body.links ?? []).flatMap((link) =>
+    typeof link.label === "string" &&
+    typeof link.url === "string" &&
+    link.url.startsWith("https://")
+      ? [{ label: link.label, url: link.url }]
+      : [],
+  );
+  return { priceUsd: typeof body.price_usd === "number" ? body.price_usd : null, links };
+}
+
+/**
+ * Saves (or, with null, clears) the owner's price: POST /scans/<scan guid>/price { price_usd }.
+ * Answers what the service did with it ("sent" to the store, or kept for the card's draft).
+ */
+export async function saveOwnPrice(scanId: string, priceUsd: number | null): Promise<string> {
+  const response = await fetchWithin(
+    `${SERVICE_URL}/scans/${encodeURIComponent(scanId)}/price`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price_usd: priceUsd }),
+    },
+    EXTERNAL_IDENTIFY_TIMEOUT_MS,
+  );
+  const body = (await response.json().catch(() => ({}))) as { store?: string; error?: string };
+  if (!response.ok) throw new Error(body.error ?? `the price service answered ${response.status}`);
+  return body.store ?? "";
+}

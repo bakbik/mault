@@ -8,6 +8,7 @@ import { useHotkeys } from "@/hooks/use-hotkeys";
 import { HOTKEY_PRIORITY_OVERRIDE } from "@/lib/constants/hotkeys";
 import { LANGUAGE_LABELS } from "@/lib/constants/languages";
 import { CardPriceDetails } from "@/features/cards/components/card-price-details";
+import { CardOwnPrice } from "@/features/cards/components/card-own-price";
 import { CardPurchaseLinks } from "@/features/cards/components/card-purchase-links";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -1135,6 +1136,7 @@ export function CardDetailPanel({
                           condition={currentCondition}
                         />
                         <CardPurchaseLinks card={selectedCard} />
+                        {scanId && <CardOwnPrice scanId={scanId} />}
                         {scanId && acquisitionCost && (
                           <Field
                             className="w-40"

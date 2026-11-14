@@ -122,11 +122,21 @@ export function pokemonFinishes(
   return [...finishes.values()];
 }
 
+/**
+ * Languages whose patterned mirrors (Poké Ball, Master Ball) are printings of their own even when
+ * the source names no product for them: Japanese, and Simplified Chinese, whose cards no price
+ * source lists at all.
+ */
+const SEPARATE_PATTERN_LANGS = new Set(["ja", "zh-cn"]);
+
+export function separatesPatterns(lang: string | undefined): boolean {
+  return !!lang && SEPARATE_PATTERN_LANGS.has(lang);
+}
+
 export function pokemonFinishProducts(card: PlayingCard): TcgplayerFinishProduct[] {
   const mainProductId = Number(card.tcgplayerId);
   const raw = card.raw as PokemonCardDetail;
-  const japanese = card.lang === "ja";
-  return pokemonFinishes(raw, japanese).flatMap((finish): TcgplayerFinishProduct[] => {
+  return pokemonFinishes(raw, separatesPatterns(card.lang)).flatMap((finish): TcgplayerFinishProduct[] => {
     const subTypes = POKEMON_FINISH_SUBTYPES[finish.variantType] ?? [];
     if (finish.tcgplayerProductId) {
       return [
