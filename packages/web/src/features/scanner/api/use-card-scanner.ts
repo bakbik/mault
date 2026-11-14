@@ -28,6 +28,7 @@ import { drawScanImageFile } from "@/features/scanner/lib/scan-image-file";
 import {
   orientDocumentScanImages,
   scanPageImageDataUrl,
+  turnImageDataUrl,
 } from "@/features/scanner/lib/scan-page-card-image";
 import {
   HAND_SCAN_REARM_FINGERPRINT_DIFF,
@@ -351,6 +352,7 @@ export function useCardScanner({
           dewarpedCardImage,
           matched,
           noMatch,
+          capturedUpsideDown,
         } = await searchCardImageWithConsensus(
           canvas,
           fromLiveVideo ? drawLatestVideoFrame : () => {},
@@ -373,12 +375,17 @@ export function useCardScanner({
           ),
         );
         setDebugImageUrl(debugImageUrl);
-        const { capturedImageUrl, capturedBackImageUrl } = await orientDocumentScanImages(
+        const oriented = await orientDocumentScanImages(
           savedImageUrl,
           scannedBackImageUrl,
           matched ? debugImageUrl : null,
           debugImageUrl,
         );
+        // The external identifier read the card upside down in the picture: keep it upright.
+        const capturedImageUrl = capturedUpsideDown
+          ? await turnImageDataUrl(oriented.capturedImageUrl, 2)
+          : oriented.capturedImageUrl;
+        const capturedBackImageUrl = oriented.capturedBackImageUrl;
         capturedImageUrlRef.current = capturedImageUrl;
         capturedBackImageUrlRef.current = capturedBackImageUrl;
         vectorizedOnRef.current = vectorizedOn;

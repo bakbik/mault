@@ -845,6 +845,8 @@ export interface ScanOutcome {
   dewarpedCardImage: ImageData | null;
   matched: MatchedScanDetails | null;
   noMatch: UnmatchedScanDetails | null;
+  /** The external identifier read the card upside down in this scan's picture: turn it round. */
+  capturedUpsideDown?: boolean;
 }
 
 export interface UnmatchedRateToastProps {

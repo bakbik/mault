@@ -38,3 +38,28 @@ export function dewarpCard(
   outCtx.putImageData(outData, 0, 0);
   return output;
 }
+
+/**
+ * Whether dewarpCard's picture of this outline shows the card upside down, given where the card's
+ * printed top left corner lies in the frame (as an external identifier read it). dewarpCard puts
+ * the outline's topLeft point at the picture's top left, so the printed corner nearest the
+ * outline's bottomRight point means the card lies the other way round. Nearest a side corner (a
+ * quarter turn off) says nothing.
+ */
+export function dewarpShowsCardUpsideDown(
+  contour: CardContour,
+  printedTopLeft: { x: number; y: number },
+): boolean {
+  const corners = [
+    ["topLeft", contour.topLeft],
+    ["topRight", contour.topRight],
+    ["bottomRight", contour.bottomRight],
+    ["bottomLeft", contour.bottomLeft],
+  ] as const;
+  const distance = (p: { x: number; y: number }) =>
+    Math.hypot(p.x - printedTopLeft.x, p.y - printedTopLeft.y);
+  const nearest = corners.reduce((best, corner) =>
+    distance(corner[1]) < distance(best[1]) ? corner : best,
+  );
+  return nearest[0] === "bottomRight";
+}

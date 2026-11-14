@@ -1,6 +1,7 @@
 import { learnCard } from "@/features/cards/api/card";
 import { getCardById } from "@/features/cards/api/card-search";
 import { extractCardImage } from "@/features/scanner/lib/card-detection";
+import { dewarpShowsCardUpsideDown } from "@/features/scanner/lib/perspective-warp";
 import type { ScanOutcome } from "@/lib/interfaces/scanner";
 import { runtimeEnv } from "@/lib/runtime-env";
 import { scanLog } from "@/lib/scan-log";
@@ -17,9 +18,10 @@ import type {
  *
  * The service answers POST /identify (the full frame as JPEG; headers X-Corners with the detected
  * card corners in frame pixels, X-Mault-Card with the scanner's own answer, X-Collection-Lang with
- * the collection's language) with { card_id, lang, price_usd? } or { failed: reason }, and
- * GET /health. price_usd, when given, replaces the card's own USD price, so price rules sort by
- * the service's price.
+ * the collection's language) with { card_id, lang, price_usd?, top_left? } or { failed: reason },
+ * and GET /health. price_usd, when given, replaces the card's own USD price, so price rules sort by
+ * the service's price. top_left, when given, is where the card's printed top left corner lies in
+ * the frame ([x, y] in frame pixels): the scan's picture is turned the right way up by it.
  *
  * A card the service names that the catalog lacks (its source lists it without a picture, so no
  * sync could store it) is learned from this scan: stored with the scanned card as its picture,
@@ -38,7 +40,13 @@ const JPEG_QUALITY = 0.95;
 let serviceDown = false;
 
 export type ExternalAnswer =
-  | { kind: "card"; cardId: string; lang: string; priceUsd: number | null }
+  | {
+      kind: "card";
+      cardId: string;
+      lang: string;
+      priceUsd: number | null;
+      topLeft: { x: number; y: number } | null;
+    }
   | { kind: "failed"; reason: string }
   | { kind: "unavailable"; reason: string };
 
@@ -73,6 +81,14 @@ function frameAsJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
       JPEG_QUALITY,
     ),
   );
+}
+
+function framePoint(value: unknown): { x: number; y: number } | null {
+  return Array.isArray(value) &&
+    value.length === 2 &&
+    value.every((v) => typeof v === "number" && Number.isFinite(v))
+    ? { x: value[0], y: value[1] }
+    : null;
 }
 
 export async function identifyExternally(
@@ -123,6 +139,7 @@ export async function identifyExternally(
       lang?: unknown;
       failed?: unknown;
       price_usd?: unknown;
+      top_left?: unknown;
     };
     if (typeof answer.card_id === "string" && answer.card_id) {
       const price = answer.price_usd;
@@ -134,6 +151,7 @@ export async function identifyExternally(
           typeof price === "number" && Number.isFinite(price) && price > 0
             ? price
             : null,
+        topLeft: framePoint(answer.top_left),
       };
     }
     return { kind: "failed", reason: String(answer.failed ?? "no card") };
@@ -253,8 +271,24 @@ export async function withExternalIdentifier(
   // The service's USD price, when it has one, is the card's price for display and price rules.
   const priced = <T extends { price: number | null }>(card: T): T =>
     answer.priceUsd == null ? card : { ...card, price: answer.priceUsd };
+  // Where the service read the card's printed top left says whether the picture lies upside down:
+  // the picture is the dewarped card (vectorized on the web), turned round when the search picked
+  // the turned one. A picture from the fallback crop is left as it is.
+  const searchTurned =
+    (outcome.matched?.diagnostics.orientation ??
+      outcome.noMatch?.diagnostics.orientation) === "rotated";
+  const capturedUpsideDown =
+    answer.topLeft != null &&
+    outcome.detectedContour != null &&
+    outcome.vectorizedOn === "web" &&
+    dewarpShowsCardUpsideDown(outcome.detectedContour, answer.topLeft) !== searchTurned;
   if (answer.cardId === scannerCardId && outcome.card) {
-    return { ...outcome, card: priced(outcome.card), alternativeMatches: [] };
+    return {
+      ...outcome,
+      card: priced(outcome.card),
+      alternativeMatches: [],
+      capturedUpsideDown,
+    };
   }
   const lookUp = () => getCardById(answer.cardId, collectionGuid, answer.lang);
   try {
@@ -280,6 +314,7 @@ export async function withExternalIdentifier(
         ...outcome,
         card: priced({ ...found.data, distance: 0 }),
         alternativeMatches: [],
+        capturedUpsideDown,
         matched: outcome.matched && {
           ...outcome.matched,
           lowConfidenceMatch: false,
