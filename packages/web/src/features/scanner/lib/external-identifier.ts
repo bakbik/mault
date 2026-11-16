@@ -18,10 +18,12 @@ import type {
  *
  * The service answers POST /identify (the full frame as JPEG; headers X-Corners with the detected
  * card corners in frame pixels, X-Mault-Card with the scanner's own answer, X-Collection-Lang with
- * the collection's language) with { card_id, lang, price_usd?, top_left? } or { failed: reason },
+ * the collection's language) with { card_id, lang, price_usd?, top_left?, picture? } or { failed: reason },
  * and GET /health. price_usd, when given, replaces the card's own USD price, so price rules sort by
  * the service's price. top_left, when given, is where the card's printed top left corner lies in
  * the frame ([x, y] in frame pixels): the scan's picture is turned the right way up by it.
+ * picture, when given ({ small, normal }, this install's /card-images/ only), is the card's own
+ * picture, shown before the catalog has it.
  *
  * A card the service names that the catalog lacks (its source lists it without a picture, so no
  * sync could store it) is learned from this scan: stored with the scanned card as its picture,
@@ -46,6 +48,7 @@ export type ExternalAnswer =
       lang: string;
       priceUsd: number | null;
       topLeft: { x: number; y: number } | null;
+      picture: { small: string; normal: string } | null;
     }
   | { kind: "failed"; reason: string }
   | { kind: "unavailable"; reason: string };
@@ -81,6 +84,29 @@ function frameAsJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
       JPEG_QUALITY,
     ),
   );
+}
+
+const LOCAL_CARD_PICTURE = /^\/card-images\/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)+[A-Za-z0-9_-]+\.webp$/;
+
+/**
+ * The service's own picture of the card ({ small, normal }), when it is one of this install's
+ * card pictures (/card-images/...): a Simplified Chinese card's first scan shows its own picture
+ * this way before the catalog has it. Anything else is refused.
+ */
+export function servicePicture(value: unknown): { small: string; normal: string } | null {
+  if (!value || typeof value !== "object") return null;
+  const { small, normal } = value as { small?: unknown; normal?: unknown };
+  const local = (path: unknown): path is string =>
+    typeof path === "string" && LOCAL_CARD_PICTURE.test(path) && !path.includes("..");
+  return local(small) && local(normal) ? { small, normal } : null;
+}
+
+/** The card with the service's picture of it, when the service gave one. */
+export function withServicePicture<T extends { image: unknown }>(
+  card: T,
+  picture: { small: string; normal: string } | null,
+): T {
+  return picture ? { ...card, image: picture } : card;
 }
 
 function framePoint(value: unknown): { x: number; y: number } | null {
@@ -140,6 +166,7 @@ export async function identifyExternally(
       failed?: unknown;
       price_usd?: unknown;
       top_left?: unknown;
+      picture?: unknown;
     };
     if (typeof answer.card_id === "string" && answer.card_id) {
       const price = answer.price_usd;
@@ -152,6 +179,7 @@ export async function identifyExternally(
             ? price
             : null,
         topLeft: framePoint(answer.top_left),
+        picture: servicePicture(answer.picture),
       };
     }
     return { kind: "failed", reason: String(answer.failed ?? "no card") };
@@ -269,8 +297,12 @@ export async function withExternalIdentifier(
     `[scanner] external identifier: ${answer.cardId} (scanner: ${scannerCardId ?? "no match"})`,
   );
   // The service's USD price, when it has one, is the card's price for display and price rules.
-  const priced = <T extends { price: number | null }>(card: T): T =>
-    answer.priceUsd == null ? card : { ...card, price: answer.priceUsd };
+  // The service's own picture of the card, when it gave one (a Chinese card's first scan).
+  const priced = <T extends { price: number | null; image: unknown }>(card: T): T =>
+    withServicePicture(
+      answer.priceUsd == null ? card : { ...card, price: answer.priceUsd },
+      answer.picture,
+    );
   // Where the service read the card's printed top left says whether the picture lies upside down:
   // the picture is the dewarped card (vectorized on the web), turned round when the search picked
   // the turned one. A picture from the fallback crop is left as it is.
