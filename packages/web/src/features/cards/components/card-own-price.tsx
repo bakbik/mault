@@ -1,50 +1,78 @@
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { NumberInput } from "@/features/business/components/number-input";
+import { setCollectionCardOwnerPrice } from "@/features/collections/api/collections";
 import {
-  fetchOwnPrice,
-  saveOwnPrice,
-  type OwnPrice,
-} from "@/features/scanner/lib/external-identifier";
+  invalidateCollectionCards,
+  updateInCardPages,
+} from "@/features/collections/lib/card-page-cache";
+import { fetchOwnPrice } from "@/features/scanner/lib/external-identifier";
+import type { PlayingCard } from "@magic-vault/shared";
 import { IconExternalLink } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+const MAX_OWNER_PRICE = 1_000_000;
+
+function withOwnerPrice<T extends PlayingCard>(card: T, ownerPrice: number | null): T {
+  const { ownerPrice: _previous, ...rest } = card;
+  return (ownerPrice == null ? rest : { ...rest, ownerPrice }) as T;
+}
+
 /**
- * The owner's own price of a scanned copy (USD), kept by the external service (see
- * fetchOwnPrice), with the service's links to look a price up. Nothing shows when no service is
- * set up or it never read this scan.
+ * The owner's own price of a copy (USD), kept on the copy: it counts as the copy's value instead
+ * of any market price and is never repriced (Mault tells the external service through the
+ * card.updated webhook). The external service, when set up, adds links to look a price up.
  */
-export function CardOwnPrice({ scanId }: { scanId: string }) {
+export function CardOwnPrice({
+  collectionGuid,
+  scanId,
+  ownerPrice,
+}: {
+  collectionGuid: string;
+  scanId: string;
+  ownerPrice: number | null;
+}) {
   const { t } = useTranslation("cards");
   const queryClient = useQueryClient();
-  const queryKey = ["external-own-price", scanId];
-  const { data } = useQuery({
-    queryKey,
+  const { data: lookup } = useQuery({
+    queryKey: ["external-own-price", scanId],
     queryFn: () => fetchOwnPrice(scanId),
     retry: false,
     staleTime: 30_000,
   });
-  const [draft, setDraft] = useState<number | null>(null);
-  useEffect(() => setDraft(data?.priceUsd ?? null), [data?.priceUsd]);
+  const [saved, setSaved] = useState<number | null>(ownerPrice);
+  const [draft, setDraft] = useState<number | null>(ownerPrice);
+  useEffect(() => {
+    setSaved(ownerPrice);
+    setDraft(ownerPrice);
+  }, [ownerPrice]);
   const save = useMutation({
-    mutationFn: (price: number | null) => saveOwnPrice(scanId, price),
-    onSuccess: (_store, price) =>
-      queryClient.setQueryData<OwnPrice | null>(queryKey, (old) =>
-        old ? { ...old, priceUsd: price } : old,
-      ),
+    mutationFn: async (price: number | null) => {
+      const result = await setCollectionCardOwnerPrice(collectionGuid, scanId, price);
+      if (!result.success) throw new Error(result.message || "not saved");
+      return price;
+    },
+    onSuccess: (price) => {
+      setSaved(price);
+      updateInCardPages(queryClient, collectionGuid, new Set([scanId]), (item) => ({
+        ...item,
+        card: withOwnerPrice(item.card, price),
+      }));
+      invalidateCollectionCards(queryClient, collectionGuid);
+    },
   });
-  if (!data) return null;
 
   const value = draft == null || Number.isNaN(draft) ? null : draft;
-  const invalid = value != null && value < 0;
-  const changed = value !== data.priceUsd;
+  const invalid = value != null && (value < 0 || value > MAX_OWNER_PRICE);
+  const changed = value !== saved;
+  const links = lookup?.links ?? [];
   return (
     <div className="flex flex-col gap-2">
-      {data.links.length > 0 && (
+      {links.length > 0 && (
         <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {data.links.map((link) => (
+          {links.map((link) => (
             <a
               key={link.url}
               href={link.url}
@@ -85,10 +113,10 @@ export function CardOwnPrice({ scanId }: { scanId: string }) {
             ]}
           />
         ) : save.isSuccess && !changed ? (
-          <p className="text-xs text-muted-foreground">
-            {t("cardDetailPanel.ownPriceSaved", { store: save.data })}
-          </p>
-        ) : null}
+          <p className="text-xs text-muted-foreground">{t("cardDetailPanel.ownPriceSaved")}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">{t("cardDetailPanel.ownPriceHint")}</p>
+        )}
       </Field>
     </div>
   );

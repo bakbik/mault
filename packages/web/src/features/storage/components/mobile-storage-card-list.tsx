@@ -4,6 +4,7 @@ import { usePriceSource } from "@/hooks/use-price-source";
 import { MOBILE_LIST_CLASS, MOBILE_LIST_ROW_CLASS } from "@/lib/constants/nav";
 import type { StorageCardListProps } from "@/lib/interfaces/storage";
 import { useTranslation } from "react-i18next";
+import { OwnerPriceMark } from "@/features/cards/components/owner-price-mark";
 
 export function MobileStorageCardList({
   entries,
@@ -54,8 +55,9 @@ export function MobileStorageCardList({
               </span>
             </span>
             {price != null && (
-              <span className="shrink-0 text-sm font-semibold tabular-nums">
+              <span className="inline-flex shrink-0 items-center gap-0.5 text-sm font-semibold tabular-nums">
                 {format(price)}
+                <OwnerPriceMark card={entry.card} />
               </span>
             )}
           </button>

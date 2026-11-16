@@ -19,6 +19,7 @@ import { databaseErrorResponse } from "../../lib/database-error-response";
 import { findFoilPrinting } from "../../lib/card-search/foil-printing";
 import { resolveGameKeyAndLang } from "../../lib/card-search/resolve";
 import { hydrateSavedCards, toSavedCardSnapshots } from "../../lib/saved-cards";
+import { parseOwnerPrice } from "../../lib/owner-price";
 
 export const editCollectionCardRoute = new Hono<AppEnv>().put(
   "/:guid/cards/:scanId",
@@ -37,6 +38,7 @@ export const editCollectionCardRoute = new Hono<AppEnv>().put(
       language,
       confirmed,
       reviewed,
+      ownerPrice: ownerPriceInput,
     } = await c.req.json<{
       confirmed?: boolean;
       reviewed?: boolean;
@@ -47,7 +49,14 @@ export const editCollectionCardRoute = new Hono<AppEnv>().put(
       stamp?: string | null;
       condition?: CardCondition;
       language?: string;
+      ownerPrice?: number | null;
     }>();
+    let ownerPrice: number | null | undefined;
+    try {
+      ownerPrice = parseOwnerPrice(ownerPriceInput);
+    } catch (err) {
+      return c.json({ success: false, message: (err as Error).message }, 400);
+    }
     if (condition !== undefined && !isCardCondition(condition)) {
       return c.json({ success: false, message: "Invalid condition." }, 400);
     }
@@ -64,6 +73,8 @@ export const editCollectionCardRoute = new Hono<AppEnv>().put(
           columns: {
             id: true,
             scannedAt: true,
+            cardId: true,
+            ownerPrice: true,
             card: true,
             binNumber: true,
             isFoil: true,
@@ -120,6 +131,12 @@ export const editCollectionCardRoute = new Hono<AppEnv>().put(
         if (condition !== undefined) updates.condition = condition;
         if (language !== undefined) updates.language = language;
         else if (card !== undefined) updates.language = pickedCardLanguage(card);
+        if (ownerPrice !== undefined) updates.ownerPrice = ownerPrice;
+        else if (updates.cardId !== undefined && updates.cardId !== existing.cardId) {
+          updates.ownerPrice = null;      // the owner's price was for the card it was before
+        }
+        const shownOwnerPrice =
+          updates.ownerPrice !== undefined ? updates.ownerPrice : existing.ownerPrice;
 
         await tx
           .update(collectionCards)
@@ -158,13 +175,14 @@ export const editCollectionCardRoute = new Hono<AppEnv>().put(
               card !== undefined || confirmed ? true : existing.isCorrected,
             lowConfidenceMatch: resolvesReview ? false : existing.lowConfidenceMatch,
             isReviewed: resolvesReview ? true : existing.isReviewed,
+            ownerPrice: shownOwnerPrice,
           }),
         };
       });
       if (result.success) {
         if (card !== undefined) void markScanCorrected(scanId);
         emitToSession(guid, "card_updated", result.data);
-        const changesCard = [card, isFoil, foilType, condition, language].some(
+        const changesCard = [card, isFoil, foilType, condition, language, ownerPrice].some(
           (value) => value !== undefined,
         );
         if (changesCard) emitCardsUpdatedWebhook(orgId, [scanId]);

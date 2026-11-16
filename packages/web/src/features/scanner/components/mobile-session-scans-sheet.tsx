@@ -12,6 +12,7 @@ import type { MobileSessionScansSheetProps } from "@/lib/interfaces/scanner";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { OwnerPriceMark } from "@/features/cards/components/owner-price-mark";
 
 export function MobileSessionScansSheet({
   open,
@@ -93,8 +94,9 @@ export function MobileSessionScansSheet({
                       </span>
                     </span>
                     {price != null && (
-                      <span className="shrink-0 text-sm font-semibold tabular-nums">
+                      <span className="inline-flex shrink-0 items-center gap-0.5 text-sm font-semibold tabular-nums">
                         {format(price)}
+                        <OwnerPriceMark card={entry.card} />
                       </span>
                     )}
                   </Link>

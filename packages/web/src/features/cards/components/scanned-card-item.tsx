@@ -18,6 +18,7 @@ import { DEFAULT_CARD_CONDITION, rarityLabel } from "@magic-vault/shared";
 import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { raritySwatch } from "@/lib/card-swatches";
+import { OwnerPriceMark } from "@/features/cards/components/owner-price-mark";
 
 export const ScannedCardItem = memo(function ScannedCardItem({
   card,
@@ -203,8 +204,9 @@ export const ScannedCardItem = memo(function ScannedCardItem({
           )}
         </div>
         {displayPrice != null && (
-          <p className="shrink-0 text-xs font-medium text-foreground/70">
+          <p className="flex shrink-0 items-center gap-0.5 text-xs font-medium text-foreground/70">
             {format(displayPrice)}
+            <OwnerPriceMark card={card} />
           </p>
         )}
       </div>

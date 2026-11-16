@@ -19,6 +19,7 @@ import {
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { RECENT_SCANNED_CARDS_COUNT } from "@magic-vault/shared";
+import { OwnerPriceMark } from "@/features/cards/components/owner-price-mark";
 
 export function MobileMonitorActivity({
   session,
@@ -120,8 +121,9 @@ export function MobileMonitorActivity({
                     </p>
                   </div>
                   {price != null && (
-                    <span className="shrink-0 text-sm font-medium text-foreground tabular-nums">
+                    <span className="inline-flex shrink-0 items-center gap-0.5 text-sm font-medium text-foreground tabular-nums">
                       {format(price)}
+                      <OwnerPriceMark card={entry.card} />
                     </span>
                   )}
                   {onOpenCard && (

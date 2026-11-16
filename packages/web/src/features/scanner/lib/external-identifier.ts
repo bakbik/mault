@@ -336,10 +336,10 @@ export interface OwnPrice {
 }
 
 /**
- * The owner's own price (USD) of a scanned copy, which the external service keeps rather than
- * Mault: GET /scans/<scan guid>/price answers { price_usd, links: [{ label, url }] } (where to look
- * a price up), or 404 for a scan it never read. null when no service is set up or it doesn't know
- * the scan.
+ * What the external service knows of a scanned copy's price: GET /scans/<scan guid>/price answers
+ * { price_usd, links: [{ label, url }] } (where to look a price up), or 404 for a scan it never
+ * read. null when no service is set up or it doesn't know the scan. The owner's own price itself
+ * is kept on the copy in Mault.
  */
 export async function fetchOwnPrice(scanId: string): Promise<OwnPrice | null> {
   if (!externalIdentifierEnabled()) return null;
@@ -362,23 +362,4 @@ export async function fetchOwnPrice(scanId: string): Promise<OwnPrice | null> {
       : [],
   );
   return { priceUsd: typeof body.price_usd === "number" ? body.price_usd : null, links };
-}
-
-/**
- * Saves (or, with null, clears) the owner's price: POST /scans/<scan guid>/price { price_usd }.
- * Answers what the service did with it ("sent" to the store, or kept for the card's draft).
- */
-export async function saveOwnPrice(scanId: string, priceUsd: number | null): Promise<string> {
-  const response = await fetchWithin(
-    `${SERVICE_URL}/scans/${encodeURIComponent(scanId)}/price`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ price_usd: priceUsd }),
-    },
-    EXTERNAL_IDENTIFY_TIMEOUT_MS,
-  );
-  const body = (await response.json().catch(() => ({}))) as { store?: string; error?: string };
-  if (!response.ok) throw new Error(body.error ?? `the price service answered ${response.status}`);
-  return body.store ?? "";
 }

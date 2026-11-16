@@ -42,6 +42,7 @@ export interface CollectionCardRow {
   location_guid?: string | null;
   location_name?: string | null;
   location_position?: number | null;
+  owner_price?: number | null;
 }
 
 export type TransactionRunner = <T>(fn: (tx: Transaction) => Promise<T>) => Promise<T>;

@@ -71,6 +71,7 @@ export interface PublicApiCardRow {
   price_eur: number | string | null;
   price_eur_foil: number | string | null;
   price_usd_printing: number | string | null;
+  price_usd_owner?: number | string | null;
   stored_price_details: CardPriceDetails | null;
   saved_price_details: CardPriceDetails;
   collection_guid: string;

@@ -730,6 +730,8 @@ export const collectionCards = pgTable(
     acquisitionCost: doublePrecision("acquisition_cost"),
     acquisitionCurrency: text("acquisition_currency"),
     acquiredAt: timestamp("acquired_at"),
+    // The owner's own price of this copy (USD, as is): beats any market price, never repriced.
+    ownerPrice: doublePrecision("owner_price"),
     orgId: text("org_id").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

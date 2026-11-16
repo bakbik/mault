@@ -90,6 +90,9 @@ export const apiPricesSchema = z
     usd_printing: price.describe(
       "TCGplayer market price of this copy's printing: its foil type's own price when the card has one (a Master Ball mirror), else usd_foil for a foil and usd otherwise.",
     ),
+    usd_owner: price.describe(
+      "The owner's own price of this copy in USD, typed in the card panel; null when none. It counts as the copy's value instead of any market price and is never repriced.",
+    ),
   })
   .meta({ id: "Prices" });
 

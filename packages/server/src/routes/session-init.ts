@@ -57,6 +57,7 @@ async function querySessionInit(
       isDownloaded: collectionCards.isDownloaded,
       alternativeMatches: collectionCards.alternativeMatches,
       lowConfidenceMatch: collectionCards.lowConfidenceMatch,
+      ownerPrice: collectionCards.ownerPrice,
     })
     .from(collectionCards)
     .where(eq(collectionCards.collectionId, collection.id))

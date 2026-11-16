@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { IconCheck, IconHelpCircle } from "@tabler/icons-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
+import { OwnerPriceMark } from "@/features/cards/components/owner-price-mark";
 
 export const MobileCardTile = memo(function MobileCardTile({
   entry,
@@ -81,6 +82,7 @@ export const MobileCardTile = memo(function MobileCardTile({
           {price != null
             ? format(price)
             : `${entry.card.set.toUpperCase()} #${entry.card.collectorNumber}`}
+          {price != null && <OwnerPriceMark card={entry.card} />}
         </p>
       </div>
     </button>

@@ -115,9 +115,13 @@ function scannedPriceFrom(
     pricing.source === "tcgplayer"
       ? sql`CASE WHEN ${cols.stamp} IS NOT NULL THEN (CASE WHEN ${cols.isFoil} THEN ${storedStamp(fields.priceFoil)} ELSE ${storedStamp(fields.price)} END) END, `
       : sql``;
-  return sql<
+  const market = sql<
     number | null
   >`(COALESCE(${stampValue}CASE WHEN ${cols.isFoil} THEN ${foilValue} END, ${value(fields.price)}) * ${conditionFactorSql(cols.condition, pricing.conditionMultipliers)})`;
+  // The owner's own price of the copy (USD, as is) comes first, for a source counting in dollars.
+  return fields.currency === "USD"
+    ? sql<number | null>`COALESCE(${cols.ownerPrice}, ${market})`
+    : market;
 }
 
 export function scannedCardPriceSql(

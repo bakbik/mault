@@ -47,6 +47,8 @@ export interface SavedCardItem<T extends PlayingCard = PlayingCard>
   card: T;
   /** The copy's Foil field: its card shows that version's picture when it has one. */
   foilType?: string | null;
+  /** The owner's own price of the copy, put on its card (see withOwnerPrice). */
+  ownerPrice?: number | null;
 }
 
 export interface SavedScanFields {

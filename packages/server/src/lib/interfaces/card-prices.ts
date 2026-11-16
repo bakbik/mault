@@ -35,6 +35,8 @@ export interface ScannedCardSqlColumns {
   condition: SQL | AnyColumn;
   cardId: SQL | AnyColumn;
   collectionId: SQL | AnyColumn;
+  /** The owner's own price of the copy (USD): its value instead of any market price. */
+  ownerPrice: SQL | AnyColumn;
 }
 
 export interface CardPriceRefreshOptions {

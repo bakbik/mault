@@ -62,6 +62,7 @@ async function selectCards(
       ${cardPriceValueSql("priceEur", CC_ALIAS_SQL_COLUMNS)} AS price_eur,
       ${cardPriceValueSql("priceEurFoil", CC_ALIAS_SQL_COLUMNS)} AS price_eur_foil,
       ${printingPriceSql(CC_ALIAS_SQL_COLUMNS)} AS price_usd_printing,
+      cc.owner_price AS price_usd_owner,
       ${storedCardPriceDetailsSql(CC_ALIAS_SQL_COLUMNS)} AS stored_price_details,
       jsonb_build_object(
         'cardmarketPrice', cc.card -> 'cardmarketPrice',
@@ -177,6 +178,7 @@ export function toApiScannedCard(row: PublicApiCardRow): ApiScannedCard {
       eur: formatPrice(row.price_eur),
       eur_foil: formatPrice(row.price_eur_foil),
       usd_printing: formatPrice(row.price_usd_printing),
+      usd_owner: formatPrice(row.price_usd_owner ?? null),
     },
     purchase_uris: toApiPurchaseUris(
       row,

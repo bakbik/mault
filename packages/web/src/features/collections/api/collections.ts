@@ -247,6 +247,17 @@ export async function setCollectionCardLanguage(
   });
 }
 
+/** The owner's own price of the copy (USD); null clears it. */
+export async function setCollectionCardOwnerPrice(
+  guid: string,
+  scanId: string,
+  ownerPrice: number | null,
+): Promise<Result<ScannedCard>> {
+  return apiPut<Result<ScannedCard>>(`/api/collections/${guid}/cards/${scanId}`, {
+    ownerPrice,
+  });
+}
+
 export async function setCollectionCardStamp(
   guid: string,
   scanId: string,

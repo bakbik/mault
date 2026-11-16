@@ -16,6 +16,7 @@ import { cardCatalogJoinSql } from "../../lib/card-catalog-sql";
 import { CC_ALIAS_SQL_COLUMNS } from "../../lib/constants/card-prices";
 import { COLLECTION_PREVIEW_SCAN_WINDOW } from "../../lib/constants/collections";
 import { CATALOG_CC_ALIAS_COLUMNS } from "../../lib/constants/saved-cards";
+import { withOwnerPrice } from "../../lib/saved-cards";
 
 export function toCollection(row: {
   guid: string | null;
@@ -82,10 +83,11 @@ export function toScannedCard(row: {
   lowConfidenceMatch?: boolean | null;
   isReviewed?: boolean | null;
   storageLocation?: CardStorageLocation | null;
+  ownerPrice?: number | null;
 }): ScannedCard {
   return {
     scanId: row.guid!,
-    card: row.card as PlayingCardWithDistance,
+    card: withOwnerPrice(row.card as PlayingCardWithDistance, row.ownerPrice),
     scannedAt: row.scannedAt.getTime(),
     binNumber: row.binNumber ?? undefined,
     capturedImageUrl: row.capturedImageDataUrl ?? undefined,

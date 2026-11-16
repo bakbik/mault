@@ -37,7 +37,7 @@ import {
 } from "../../lib/card-price-sql";
 import { cardCatalogJoinSql } from "../../lib/card-catalog-sql";
 import { CATALOG_CC_ALIAS_COLUMNS } from "../../lib/constants/saved-cards";
-import { hydrateSavedScans } from "../../lib/saved-cards";
+import { hydrateSavedScans, withOwnerPrice } from "../../lib/saved-cards";
 import { setNumberOrderSql, setNumberSortDirection } from "../../lib/set-number-sort";
 import type {
   CardPriceDetailKey,
@@ -158,7 +158,8 @@ const COLOR_IDENTITY = CATALOG_CC_ALIAS_COLUMNS.colorIdentity;
 
 const FOIL_LABEL = sql`COALESCE(cc.foil_type, CASE WHEN cc.is_foil THEN 'Foil' END)`;
 
-const DUPLICATE_KEY = sql`(cc.card_id || ':' || cc.is_foil::text || ':' || COALESCE(cc.foil_type, '') || ':' || COALESCE(cc.stamp, '') || ':' || cc.condition || ':' || COALESCE(cc.language, cc.card_lang, 'en'))`;
+// Copies the owner priced differently are different entries.
+const DUPLICATE_KEY = sql`(cc.card_id || ':' || cc.is_foil::text || ':' || COALESCE(cc.foil_type, '') || ':' || COALESCE(cc.stamp, '') || ':' || cc.condition || ':' || COALESCE(cc.language, cc.card_lang, 'en') || ':' || COALESCE(cc.owner_price::text, ''))`;
 
 function isCardPriceKey(path: string): path is CardPriceKey {
   return path in CARD_PRICE_COLUMNS;
@@ -379,7 +380,8 @@ const CARD_ROW_COLUMNS = sql`
   cc.guid, cc.card, ${SCANNED_AT_MS} AS scanned_at_ms, cc.bin_number,
   cc.is_foil, cc.foil_type, cc.stamp, cc.condition, cc.language, cc.is_downloaded,
   cc.alternative_matches, cc.is_corrected, cc.low_confidence_match, cc.is_reviewed,
-  cc.location_position, sl.guid::text AS location_guid, sl.name AS location_name`;
+  cc.location_position, sl.guid::text AS location_guid, sl.name AS location_name,
+  cc.owner_price`;
 
 function toCard(row: CollectionCardRow) {
   return toScannedCard({
@@ -397,6 +399,7 @@ function toCard(row: CollectionCardRow) {
     isCorrected: row.is_corrected,
     lowConfidenceMatch: row.low_confidence_match,
     isReviewed: row.is_reviewed,
+    ownerPrice: row.owner_price,
     storageLocation: row.location_guid
       ? {
           guid: row.location_guid,
@@ -580,7 +583,8 @@ export async function loadAllCards(
       ${SCANNED_AT_MS} AS scanned_at_ms, cc.bin_number,
       cc.is_foil, cc.foil_type, cc.stamp, cc.condition, cc.language, cc.is_downloaded,
       cc.alternative_matches, cc.is_corrected, cc.low_confidence_match, cc.is_reviewed,
-      cc.location_position, sl.guid::text AS location_guid, sl.name AS location_name
+      cc.location_position, sl.guid::text AS location_guid, sl.name AS location_name,
+      cc.owner_price
     FROM collection_cards cc
     ${cardPricesJoinSql("cp", collection, CC_ALIAS_SQL_COLUMNS)}
     ${STORAGE_LOCATION_JOIN}
@@ -793,7 +797,7 @@ export async function loadBinContents(
   const collectionId = collection.id;
   const result = await tx.execute(sql`
     SELECT cc.guid::text AS guid, cc.bin_number, cc.card, cc.is_foil, cc.foil_type,
-      ${SCANNED_AT_MS} AS scanned_at_ms
+      cc.owner_price, ${SCANNED_AT_MS} AS scanned_at_ms
     ${binWindowsJoin(collectionId, bins)}
     ORDER BY cc.scanned_at DESC, cc.id DESC
   `);
@@ -804,13 +808,14 @@ export async function loadBinContents(
       card: GroupedScannedCard["card"];
       is_foil: boolean;
       foil_type: string | null;
+      owner_price: number | null;
       scanned_at_ms: number;
     }[]
   ).map((row) => ({
     scanId: row.guid,
     binNumber: row.bin_number,
     scannedAt: row.scanned_at_ms,
-    card: row.card,
+    card: withOwnerPrice(row.card, row.owner_price),
     isFoil: row.is_foil,
     foilType: row.foil_type ?? undefined,
   }));

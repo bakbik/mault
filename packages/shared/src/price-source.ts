@@ -99,12 +99,26 @@ export function tcgplayerHeadlinePrices(
   };
 }
 
+/** The owner's own price of the copy (USD), when the price source counts in dollars. */
+export function ownerPriceFor(
+  card: Partial<Pick<PlayingCard, "ownerPrice">>,
+  source: PriceSource,
+): number | null {
+  return card.ownerPrice != null && PRICE_SOURCE_FIELDS[source].currency === "USD"
+    ? card.ownerPrice
+    : null;
+}
+
 export function cardPriceFor(
   card: CardPricesAtScan &
     Partial<
       Pick<
         PlayingCard,
-        "finishPrices" | "priceByCondition" | "priceFoilByCondition" | "stampPrices"
+        | "finishPrices"
+        | "priceByCondition"
+        | "priceFoilByCondition"
+        | "stampPrices"
+        | "ownerPrice"
       >
     >,
   finish: boolean | CardFinish | null | undefined,
@@ -112,6 +126,8 @@ export function cardPriceFor(
   condition?: CardCondition | null,
   multipliers?: ConditionMultipliers,
 ): number | null {
+  const owner = ownerPriceFor(card, source);
+  if (owner != null) return owner;
   if (source === "tcgplayer") {
     const conditionPrice = tcgplayerConditionPriceFor(card, finish, condition);
     if (conditionPrice != null) return conditionPrice;
@@ -139,6 +155,8 @@ export function cardPriceAtScanFor(
   condition?: CardCondition | null,
   multipliers?: ConditionMultipliers,
 ): number | null {
+  const owner = ownerPriceFor(card, source);
+  if (owner != null) return owner;           // the owner's price has no change since the scan
   return card.pricesAtScan
     ? cardPriceFor(card.pricesAtScan, finish, source, condition, multipliers)
     : null;

@@ -1141,7 +1141,13 @@ export function CardDetailPanel({
                           condition={currentCondition}
                         />
                         <CardPurchaseLinks card={selectedCard} />
-                        {scanId && <CardOwnPrice scanId={scanId} />}
+                        {scanId && collection?.guid && (
+                          <CardOwnPrice
+                            collectionGuid={collection.guid}
+                            scanId={scanId}
+                            ownerPrice={currentCard?.ownerPrice ?? null}
+                          />
+                        )}
                         {scanId && acquisitionCost && (
                           <Field
                             className="w-40"

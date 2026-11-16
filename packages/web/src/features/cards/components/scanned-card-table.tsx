@@ -27,6 +27,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { raritySwatch } from "@/lib/card-swatches";
 import { rarityLabel } from "@magic-vault/shared";
+import { OwnerPriceMark } from "@/features/cards/components/owner-price-mark";
 
 export function ScannedCardTable({
   rows,
@@ -239,7 +240,10 @@ export function ScannedCardTable({
                 )}
               </TableCell>
               <TableCell className="text-right text-xs font-medium tabular-nums">
-                {displayPrice != null ? format(displayPrice) : "-"}
+                <span className="inline-flex items-center gap-0.5">
+                  {displayPrice != null ? format(displayPrice) : "-"}
+                  <OwnerPriceMark card={card} />
+                </span>
               </TableCell>
             </TableRow>
           );

@@ -22,6 +22,7 @@ import {
 import { IconBox, IconBoxOff } from "@tabler/icons-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { OwnerPriceMark } from "@/features/cards/components/owner-price-mark";
 
 export function StorageCardList({
   entries,
@@ -169,7 +170,10 @@ export function StorageCardList({
                     {priceAtScan != null ? format(priceAtScan) : "-"}
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums">
-                    {price != null ? format(price) : "-"}
+                    <span className="inline-flex items-center gap-0.5">
+                      {price != null ? format(price) : "-"}
+                      <OwnerPriceMark card={entry.card} />
+                    </span>
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-foreground/70">
                     {entry.acquisitionCost != null && entry.acquisitionCurrency

@@ -52,6 +52,7 @@ export const COLLECTION_CARD_SQL_COLUMNS: ScannedCardSqlColumns = {
   condition: collectionCards.condition,
   cardId: collectionCards.cardId,
   collectionId: collectionCards.collectionId,
+  ownerPrice: collectionCards.ownerPrice,
 };
 
 export const CC_ALIAS_SQL_COLUMNS: ScannedCardSqlColumns = {
@@ -70,4 +71,5 @@ export const CC_ALIAS_SQL_COLUMNS: ScannedCardSqlColumns = {
   condition: sql`cc.condition`,
   cardId: sql`cc.card_id`,
   collectionId: sql`cc.collection_id`,
+  ownerPrice: sql`cc.owner_price`,
 };

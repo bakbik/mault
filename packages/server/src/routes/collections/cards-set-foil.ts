@@ -60,6 +60,7 @@ export const setCollectionCardsFoilTypeRoute = new Hono<AppEnv>().post(
           isCorrected: collectionCards.isCorrected,
           lowConfidenceMatch: collectionCards.lowConfidenceMatch,
           isReviewed: collectionCards.isReviewed,
+          ownerPrice: collectionCards.ownerPrice,
         });
       if (!scope) return [];
       const currentCards = await hydrateSavedCards(

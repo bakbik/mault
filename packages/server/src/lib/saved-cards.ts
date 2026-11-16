@@ -63,6 +63,19 @@ export function withCatalogCard<T extends PlayingCard>(
   return (includeRaw ? { ...merged, raw: current.raw } : merged) as T;
 }
 
+/** The copy's card with the owner's own price of the copy, when there is one. */
+export function withOwnerPrice<T extends PlayingCard>(
+  card: T,
+  ownerPrice: number | null | undefined,
+): T {
+  if (ownerPrice == null) {
+    if (card.ownerPrice === undefined) return card;
+    const { ownerPrice: _dropped, ...rest } = card;
+    return rest as T;
+  }
+  return { ...card, ownerPrice };
+}
+
 /** The card as a copy of this version (foil type) shows it: with that version's own picture. */
 export function withFoilTypeImage<T extends PlayingCard>(
   card: T,
@@ -89,10 +102,11 @@ export async function hydrateSavedCards<T extends PlayingCard>(
   const catalog = keys.length > 0 ? await loadCatalogCards(keys) : new Map();
   return items.map((item) => {
     const key = lookupKey(item, item.card);
-    return withFoilTypeImage(
+    const hydrated = withFoilTypeImage(
       withCatalogCard(item.card, key ? catalog.get(key) : undefined, options),
       item.foilType,
     );
+    return "ownerPrice" in item ? withOwnerPrice(hydrated, item.ownerPrice) : hydrated;
   });
 }
 

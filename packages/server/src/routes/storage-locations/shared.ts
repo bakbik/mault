@@ -114,6 +114,7 @@ function storedCardColumns() {
     card: sql<PlayingCardWithDistance>`${cardWithStoredPricesSql(sql`(${collectionCards.card} - 'raw')`)}`,
     isFoil: collectionCards.isFoil,
     foilType: collectionCards.foilType,
+    ownerPrice: collectionCards.ownerPrice,
     stamp: collectionCards.stamp,
     condition: collectionCards.condition,
     language: collectionCards.language,
@@ -191,6 +192,7 @@ export async function toStoredCards(
       lang: r.collectionLang,
       card: r.card,
       foilType: r.foilType,
+      ownerPrice: r.ownerPrice,
     })),
     { includeRaw: false },
   );
@@ -285,6 +287,7 @@ export async function loadStorageLocationExportCards(
       card: sql<PlayingCardWithDistance>`${cardWithStoredPricesSql(sql`${collectionCards.card}`)}`,
       isFoil: collectionCards.isFoil,
       foilType: collectionCards.foilType,
+      ownerPrice: collectionCards.ownerPrice,
       stamp: collectionCards.stamp,
       condition: collectionCards.condition,
       language: collectionCards.language,
@@ -308,6 +311,7 @@ export async function loadStorageLocationExportCards(
       lang: r.collectionLang,
       card: r.card,
       foilType: r.foilType,
+      ownerPrice: r.ownerPrice,
     })),
     { includeRaw: true },
   );
