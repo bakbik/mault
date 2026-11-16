@@ -136,6 +136,7 @@ export function separatesPatterns(lang: string | undefined): boolean {
 export function pokemonFinishProducts(card: PlayingCard): TcgplayerFinishProduct[] {
   const mainProductId = Number(card.tcgplayerId);
   const raw = card.raw as PokemonCardDetail;
+  const japanese = card.lang === "ja";
   return pokemonFinishes(raw, separatesPatterns(card.lang)).flatMap((finish): TcgplayerFinishProduct[] => {
     const subTypes = POKEMON_FINISH_SUBTYPES[finish.variantType] ?? [];
     if (finish.tcgplayerProductId) {
