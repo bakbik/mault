@@ -89,7 +89,10 @@ export async function hydrateSavedCards<T extends PlayingCard>(
   const catalog = keys.length > 0 ? await loadCatalogCards(keys) : new Map();
   return items.map((item) => {
     const key = lookupKey(item, item.card);
-    return withCatalogCard(item.card, key ? catalog.get(key) : undefined, options);
+    return withFoilTypeImage(
+      withCatalogCard(item.card, key ? catalog.get(key) : undefined, options),
+      item.foilType,
+    );
   });
 }
 

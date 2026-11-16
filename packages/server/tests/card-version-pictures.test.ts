@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { cardImageForFoilType, type PlayingCard } from "@magic-vault/shared";
 import { pokemonAdapter } from "../src/lib/adapters/pokemon/search";
-import { withFoilTypeImage } from "../src/lib/saved-cards";
+import { hydrateSavedCards, withFoilTypeImage } from "../src/lib/saved-cards";
 
 const POKE_BALL = "Reverse Holo (Poké Ball)";
 const MAIN = {
@@ -91,6 +91,18 @@ test("a regular copy shows the main picture, even once shown as another version"
 test("a copy of a version without its own picture shows the main picture", () => {
   assert.deepEqual(cardImageForFoilType(card, "Reverse Holo (Master Ball)"), MAIN);
   assert.deepEqual(withFoilTypeImage(card, "Holo").image, MAIN);
+});
+
+test("a copy in a storage box shows the picture of its version", async () => {
+  const [ball, regular] = await hydrateSavedCards(
+    [
+      { gameKey: null, lang: "zh-cn", card, foilType: POKE_BALL },
+      { gameKey: null, lang: "zh-cn", card: { ...card, image: BALL }, foilType: null },
+    ],
+    { includeRaw: false },
+  );
+  assert.deepEqual(ball.image, BALL);
+  assert.deepEqual(regular.image, MAIN);
 });
 
 test("a card with no version pictures keeps its picture", () => {

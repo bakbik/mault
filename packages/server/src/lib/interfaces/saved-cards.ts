@@ -45,6 +45,8 @@ export interface SavedCardScope {
 export interface SavedCardItem<T extends PlayingCard = PlayingCard>
   extends SavedCardScope {
   card: T;
+  /** The copy's Foil field: its card shows that version's picture when it has one. */
+  foilType?: string | null;
 }
 
 export interface SavedScanFields {

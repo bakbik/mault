@@ -190,6 +190,7 @@ export async function toStoredCards(
       gameKey: r.gameKey,
       lang: r.collectionLang,
       card: r.card,
+      foilType: r.foilType,
     })),
     { includeRaw: false },
   );
@@ -306,6 +307,7 @@ export async function loadStorageLocationExportCards(
       gameKey: r.gameKey,
       lang: r.collectionLang,
       card: r.card,
+      foilType: r.foilType,
     })),
     { includeRaw: true },
   );
