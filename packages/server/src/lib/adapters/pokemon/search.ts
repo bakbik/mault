@@ -1,6 +1,10 @@
 import { pokemonStampProducts, pokemonStamps } from "./stamps";
 import { pokemonPrintingMarkGroups } from "../../printing-marks/groups";
-import { type PlayingCard, proxiedImageUrl } from "@magic-vault/shared";
+import {
+  type PlayingCard,
+  type PlayingCardImage,
+  proxiedImageUrl,
+} from "@magic-vault/shared";
 import { sql } from "drizzle-orm";
 import { fetchCardApi } from "../../card-search/fetch";
 import type { CardSearchAdapter } from "../../interfaces/card-search";
@@ -45,6 +49,36 @@ function pictureUrl(
   return set && raw.localId && listed.includes(`${lang}/${set}`)
     ? `/card-images/${lang}/${set}/${raw.localId}/${quality}.webp`
     : "";
+}
+
+const VERSION_FOLDER = /^[a-z0-9-]{1,60}$/;
+
+/**
+ * Pictures of the card's own versions, for a card of a set this install serves pictures for
+ * whose versions look different (a Chinese card's Poké Ball reverse holo): the record's
+ * versionPictures ({foil type: folder}) are served at
+ * /card-images/<lang>/<set>/<number>/<folder>/{low,high}.webp, "" being the main picture.
+ */
+function versionPictures(
+  raw: PokemonCardDetail,
+  lang: string | undefined,
+  main: PlayingCardImage | null,
+): Record<string, PlayingCardImage> | undefined {
+  const set = raw.set?.id;
+  const listed = (process.env.LOCAL_CARD_PICTURE_SETS ?? "").split(",");
+  if (!main || raw.image || !set || !raw.localId || !listed.includes(`${lang}/${set}`)) return undefined;
+  const versions = Object.entries(raw.versionPictures ?? {}).filter(
+    ([foilType, folder]) => foilType && typeof folder === "string" && VERSION_FOLDER.test(folder),
+  );
+  if (versions.length === 0) return undefined;
+  const base = `/card-images/${lang}/${set}/${raw.localId}`;
+  return Object.fromEntries([
+    ["", main],
+    ...versions.map(([foilType, folder]) => [
+      foilType,
+      { small: `${base}/${folder}/low.webp`, normal: `${base}/${folder}/high.webp` },
+    ]),
+  ]);
 }
 
 const JAPANESE = "ja";
@@ -99,10 +133,13 @@ function normalizePokemonCard(raw: PokemonCardDetail, lang?: string): PlayingCar
       .join(" - ") ||
     (raw.category ?? "");
 
+  const image = large ? { small: small || large, normal: large } : null;
+  const foilTypeImages = versionPictures(raw, lang, image);
   return {
     id: raw.id,
     name: raw.name ?? "",
-    image: large ? { small: small || large, normal: large } : null,
+    image,
+    ...(foilTypeImages ? { foilTypeImages } : {}),
     set: raw.set?.id ?? "",
     setName: raw.set?.name || (raw.set?.id ?? ""),
     collectorNumber: raw.localId ?? "",

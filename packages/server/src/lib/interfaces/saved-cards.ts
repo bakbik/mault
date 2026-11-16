@@ -50,6 +50,8 @@ export interface SavedCardItem<T extends PlayingCard = PlayingCard>
 export interface SavedScanFields {
   card: PlayingCard;
   alternativeMatches?: PlayingCard[] | null;
+  /** The copy's Foil field: its card shows that version's picture when it has one. */
+  foilType?: string | null;
 }
 
 export interface SavedCardHydrateOptions {

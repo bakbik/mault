@@ -103,6 +103,9 @@ export interface PlayingCard {
   pricesAtScan?: CardPricesAtScan;
   foilTypes?: string[];
   foilOnlyFoilType?: string;
+  /** Pictures of the card's own versions by foil type ("" = no foil type: the main picture), for
+   * a card whose versions look different; see cardImageForFoilType. */
+  foilTypeImages?: Record<string, PlayingCardImage>;
   finishPrices?: Record<string, CardFinishPrices>;
   stamps?: string[];
   stampPrices?: Record<string, CardStampPrices>;

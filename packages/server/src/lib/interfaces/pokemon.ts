@@ -77,6 +77,9 @@ export interface PokemonCardDetail extends PokemonCardBrief {
   retreat?: number;
   pricing?: PokemonPricing;
   variants_detailed?: PokemonCardVariant[];
+  /** This install's own pictures of the card's versions, {foil type: folder}: written by the
+   * loading script for a set it serves pictures for (see pictureUrl). */
+  versionPictures?: Record<string, string>;
   set?: {
     id: string;
     name: string;

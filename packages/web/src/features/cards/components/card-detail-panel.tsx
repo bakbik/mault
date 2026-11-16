@@ -93,6 +93,7 @@ import {
   type PlayingCardWithDistance,
   cardStampOptionsFor,
   printingMarkRegionsFor,
+  cardImageForFoilType,
 } from "@magic-vault/shared";
 import { usePriceSource } from "@/hooks/use-price-source";
 import { usePersistedFlag } from "@/hooks/use-persisted-state";
@@ -401,6 +402,10 @@ export function CardDetailPanel({
 
   const selectedCard =
     candidates.find((c) => c.id === selectedId) ?? currentCard;
+  // The picture of the version the Foil field says, when the card has one of its own.
+  const shownImage = selectedCard
+    ? cardImageForFoilType(selectedCard, currentFoilType)
+    : null;
   const printingMarks = printingMarkRegionsFor(
     collection?.game?.key,
     selectedCard,
@@ -630,22 +635,22 @@ export function CardDetailPanel({
           )}
         >
           <img
-            src={selectedCard?.image?.normal || ""}
+            src={shownImage?.normal || ""}
             alt={selectedCard?.name}
             className="w-full h-full object-cover"
           />
-          {ocrRegionsVisible && selectedCard?.image?.normal && (
+          {ocrRegionsVisible && shownImage?.normal && (
             <OcrRegionOverlay
               regions={fixedOcrRegions}
               printingMarks={printingMarks}
             />
           )}
         </div>
-        {ocrRegionsVisible && selectedCard?.image?.normal && (
+        {ocrRegionsVisible && shownImage?.normal && (
           <OcrRegionCrops
             regions={fixedOcrRegions}
             printingMarks={printingMarks}
-            src={selectedCard.image.normal}
+            src={shownImage.normal}
             className={cn(imageWidthClass, "mt-1.5")}
           />
         )}

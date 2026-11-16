@@ -1,4 +1,8 @@
-import { CARD_SEARCH_ALL_LANGUAGES, type PlayingCard } from "@magic-vault/shared";
+import {
+  CARD_SEARCH_ALL_LANGUAGES,
+  cardImageForFoilType,
+  type PlayingCard,
+} from "@magic-vault/shared";
 import {
   catalogCardKey,
   findCatalogCardKeys,
@@ -59,6 +63,15 @@ export function withCatalogCard<T extends PlayingCard>(
   return (includeRaw ? { ...merged, raw: current.raw } : merged) as T;
 }
 
+/** The card as a copy of this version (foil type) shows it: with that version's own picture. */
+export function withFoilTypeImage<T extends PlayingCard>(
+  card: T,
+  foilType: string | null | undefined,
+): T {
+  if (!card.foilTypeImages) return card;
+  return { ...card, image: cardImageForFoilType(card, foilType) };
+}
+
 export function withCollectionLanguage<T extends PlayingCard>(
   card: T,
   collectionLanguage: string | null | undefined,
@@ -101,7 +114,7 @@ export async function hydrateSavedScans<T extends SavedScanFields>(
   };
   return scans.map((scan) => ({
     ...scan,
-    card: scan.card ? hydrate(scan.card) : scan.card,
+    card: scan.card ? withFoilTypeImage(hydrate(scan.card), scan.foilType) : scan.card,
     alternativeMatches: scan.alternativeMatches?.map(hydrate) ?? scan.alternativeMatches,
   }));
 }
