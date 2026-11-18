@@ -87,6 +87,8 @@ function plainLetters(text: string): string {
   return text.normalize("NFD").replace(/\p{M}/gu, "");
 }
 
+const COSMOS_FOIL = "cosmos";
+
 /**
  * `separatePatterns`: a patterned variant the source names no product for is still its own
  * printing (Japanese Poké Ball and Master Ball mirrors), rather than folding into the plain one.
@@ -98,7 +100,11 @@ export function pokemonFinishes(
   const finishes = new Map<string, PokemonFinish>();
   const mainProduct = mainProductId(raw);
   for (const variant of raw.variants_detailed ?? []) {
-    const base = variant.type ? POKEMON_FINISH_BASE_LABELS[variant.type] : undefined;
+    // A galaxy (cosmos) holo is a holo printing of its own (blister and promo cards), however the
+    // source lists it: TCGdex names some "normal" with a cosmos foil, and gives most no product.
+    const cosmos = variant.foil === COSMOS_FOIL;
+    const variantType = cosmos ? "holo" : variant.type;
+    const base = variantType ? POKEMON_FINISH_BASE_LABELS[variantType] : undefined;
     if (
       !base ||
       variant.stamp?.length ||
@@ -108,13 +114,15 @@ export function pokemonFinishes(
     }
     const productId = variant.thirdParty?.tcgplayer ?? null;
     const isOwnProduct =
-      productId != null ? productId !== mainProduct : separatePatterns && !!variant.foil;
+      productId != null
+        ? productId !== mainProduct
+        : (separatePatterns || cosmos) && !!variant.foil;
     const foilType =
       variant.foil && isOwnProduct ? `${base} (${patternLabel(variant.foil)})` : base;
     if (finishes.has(foilType)) continue;
     finishes.set(foilType, {
       foilType,
-      variantType: variant.type!,
+      variantType: variantType!,
       tcgplayerProductId: productId,
       ...(variant.foil && isOwnProduct ? { pattern: variant.foil } : {}),
     });

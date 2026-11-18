@@ -194,3 +194,38 @@ test("Simplified Chinese patterned mirrors are finishes of their own, as Japanes
     ["Holo", "Reverse Holo"],
   );
 });
+
+test("a galaxy (cosmos) holo is a finish of its own, even with no product named", () => {
+  // Obsidian Flames 148 and 149 as TCGdex lists them: the blister cosmos holos have no TCGplayer id
+  // there (TCGplayer sells them under Miscellaneous Cards & Products), and Pawniard's is listed as a
+  // "normal" variant with a cosmos foil.
+  const pawniard: PokemonCardDetail = {
+    id: "sv03-148",
+    localId: "148",
+    name: "Pawniard",
+    variants_detailed: [
+      { type: "normal", size: "standard", thirdParty: { tcgplayer: 509935 } },
+      { type: "normal", foil: "cosmos", size: "standard" },
+      { type: "reverse", size: "standard", thirdParty: { tcgplayer: 509935 } },
+    ],
+  };
+  const bisharp: PokemonCardDetail = {
+    id: "sv03-149",
+    localId: "149",
+    name: "Bisharp",
+    variants_detailed: [
+      { type: "normal", size: "standard", thirdParty: { tcgplayer: 509936 } },
+      { type: "holo", foil: "cosmos", size: "standard" },
+      { type: "reverse", size: "standard", thirdParty: { tcgplayer: 509936 } },
+    ],
+  };
+  for (const card of [pawniard, bisharp]) {
+    assert.deepEqual(
+      pokemonFinishes(card).map((finish) => finish.foilType),
+      ["Holo (Cosmos)", "Reverse Holo"],
+    );
+  }
+  const cosmos = pokemonFinishes(pawniard)[0];
+  assert.equal(cosmos.variantType, "holo");
+  assert.equal(cosmos.pattern, "cosmos");
+});
